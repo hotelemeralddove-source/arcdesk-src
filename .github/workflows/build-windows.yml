@@ -31,11 +31,33 @@ jobs:
         run: choco install innosetup --no-progress -y
 
       - name: install python packages
+        shell: pwsh
         run: |
-          python -m pip install --upgrade pip
-          python -m pip install -r requirements.txt
-          python -m pip install -r requirements-voice.txt
-          python -m pip install "pyinstaller>=6"
+          # One package at a time, and SAY which file failed. A bare
+          # "pip install -r requirements.txt" that dies tells you nothing about which of
+          # the ten packages it died on, which is exactly what run #3 did.
+          python -m pip install --upgrade pip setuptools wheel
+          foreach ($f in @("requirements.txt", "requirements-voice.txt")) {
+            Write-Host "--- installing $f"
+            python -m pip install --prefer-binary -r $f
+            if ($LASTEXITCODE -ne 0) {
+              Write-Host "::error file=$f::pip could not install $f"
+              throw "pip failed on $f - the line above names the package"
+            }
+          }
+          python -m pip install --prefer-binary "pyinstaller>=6"
+          if ($LASTEXITCODE -ne 0) { throw "pip failed on pyinstaller" }
+
+      - name: prove the right packages are installed
+        shell: pwsh
+        run: |
+          # This is the step that would have caught the missing-Pillow build in one
+          # second instead of twelve failing tests.
+          python -c "import PySide6, psutil, PIL, numpy, pypdf, docx, openpyxl, pptx, mutagen; print('app deps ok')"
+          if ($LASTEXITCODE -ne 0) { throw "the app's own imports are not installable" }
+          python -c "import vosk, sherpa_onnx; print('voice libs ok')"
+          if ($LASTEXITCODE -ne 0) { throw "voice libraries missing (wake word / voice lock)" }
+          python -m pip list
 
       - name: prove the app works before packaging it
         shell: pwsh
