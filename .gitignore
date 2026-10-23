@@ -27,3 +27,4 @@ shots/_scratch/
 # downloads them once, the installer carries them, and the user never sees a download.
 runtime/
 packaging/runtimes/
+.failures/

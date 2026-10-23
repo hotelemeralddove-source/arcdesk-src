@@ -394,6 +394,80 @@ for rel, why in (("run.py", "the entry point"),
     p = ROOT / rel
     check(f"file exists: {rel} ({why})", p.is_file() and p.stat().st_size > 20, True)
 
+print("\nE2. Dependencies — every third-party import is declared")
+# The first real Windows run failed with "No module named 'PIL'" on nine tests: the code
+# imports Pillow and numpy everywhere and requirements.txt listed neither. Declared here.
+import re as _re  # noqa: E402
+import sys as _sys  # noqa: E402
+
+_STD = set(_sys.stdlib_module_names)
+_LOCAL = {"arcdesk", "run", "arc_daemon", "tools", "tests", "doctor", "github_scan_md"}
+# Optional on purpose: the code imports them inside try/except and says what is missing.
+# Each one has a file that explains it, and the feature degrades honestly without it.
+_OPTIONAL = {
+    "scipy": "vision: fast connected components, numpy fallback exists",
+    "vosk": "wake word (requirements-voice.txt)",
+    "sounddevice": "microphone (requirements-voice.txt)",
+    "sherpa_onnx": "voice lock (requirements-voice.txt)",
+    "openwakeword": "alternative wake engine (optional extra)",
+    "pyaudio": "alternative microphone backend",
+    "resemblyzer": "alternative speaker embedding engine",
+    "transformers": "IndicF5 clone (install_clone.bat)",
+    "TTS": "XTTS clone (install_clone.bat)",
+    "piper": "offline fallback voice (install_clone.bat)",
+    "comtypes": "exact Windows volume, media-key fallback exists",
+    "pycaw": "exact Windows volume, media-key fallback exists",
+    "imageio_ffmpeg": "finds a bundled ffmpeg if the portable one is absent",
+    "audioop": "removed from Python 3.13; the daemon handles its absence",
+}
+_declared: set[str] = set()
+for req_file in ("requirements.txt", "requirements-voice.txt"):
+    for line in (ROOT / req_file).read_text(encoding="utf-8").splitlines():
+        line = line.split("#")[0].strip()
+        if not line or line.startswith("-"):
+            continue
+        name = _re.split(r"[<>=!~\[]", line)[0].strip().lower()
+        _declared.add(name.replace("_", "-"))
+
+_pkg_for = {"PIL": "pillow", "docx": "python-docx", "pptx": "python-pptx",
+            "pypdf": "pypdf", "mutagen": "mutagen", "numpy": "numpy",
+            "psutil": "psutil", "PySide6": "pyside6-essentials"}
+
+_undeclared: dict[str, set[str]] = {}
+for src_file in (list((ROOT / "arcdesk").rglob("*.py"))
+                 + list((ROOT / "tools").glob("*.py"))
+                 + [ROOT / "run.py", ROOT / "arc_daemon.py"]):
+    try:
+        tree = ast.parse(src_file.read_text(encoding="utf-8"))
+    except SyntaxError:
+        continue
+    for node in ast.walk(tree):
+        names: list[str] = []
+        if isinstance(node, ast.Import):
+            names = [a.name.split(".")[0] for a in node.names]
+        elif isinstance(node, ast.ImportFrom) and node.level == 0 and node.module:
+            names = [node.module.split(".")[0]]
+        for name in names:
+            if name in _STD or name in _LOCAL or name in _OPTIONAL:
+                continue
+            pkg = _pkg_for.get(name, name).lower().replace("_", "-")
+            if pkg not in _declared and name.lower() not in _declared:
+                _undeclared.setdefault(name, set()).add(src_file.name)
+print(f"        {len(_declared)} declarations, "
+      f"{len(_OPTIONAL)} documented-optional imports")
+check("every third-party import is declared or documented as optional",
+      {k: sorted(v)[:3] for k, v in _undeclared.items()}, {})
+
+# and the ones the app cannot work without must actually import here
+for mod, pkg in (("PIL", "Pillow"), ("numpy", "numpy"), ("psutil", "psutil"),
+                 ("pypdf", "pypdf"), ("docx", "python-docx"), ("openpyxl", "openpyxl"),
+                 ("pptx", "python-pptx"), ("mutagen", "mutagen")):
+    try:
+        importlib.import_module(mod)
+        check(f"{pkg} imports", True, True)
+    except Exception as exc:  # noqa: BLE001
+        check(f"{pkg} imports", f"{type(exc).__name__}", "True")
+
 print("\nF. Windows — the things that only break on someone else's machine")
 # Every one of these was a real failure on GitHub's Windows runner.
 runall = (ROOT / "tests" / "run_all.py").read_text(encoding="utf-8")
@@ -414,11 +488,16 @@ check("no subprocess is decoded with the platform default", bare_writes, [])
 spec = (ROOT / "packaging" / "arcdesk.spec").read_text(encoding="utf-8")
 check("the spec writes its build info as UTF-8", 'encoding="utf-8"' in spec, True)
 workflow = (ROOT / ".github" / "workflows" / "build-windows.yml").read_text(encoding="utf-8")
-code_lines = [ln for ln in workflow.splitlines() if not ln.strip().startswith("#")]
-check("CI never reads a windowed exe's $LASTEXITCODE directly",
-      "Start-Process" in workflow
-      and not any("$LASTEXITCODE" in ln for ln in code_lines), True)
+smoke = workflow.split("smoke-test the frozen exe")[1].split("- name:")[0]
+smoke_code = [ln for ln in smoke.splitlines() if not ln.strip().startswith("#")]
+check("the frozen-exe smoke test uses Start-Process (a windowed exe sets no exit code)",
+      "Start-Process" in smoke
+      and not any("$LASTEXITCODE" in ln for ln in smoke_code), True)
 check("CI keeps a log when something fails", "if: failure()" in workflow, True)
+check("a failing test prints its own last lines (not just its name)",
+      "last 12 lines" in (ROOT / "tests" / "run_all.py").read_text(encoding="utf-8"), True)
+check("...and writes them to .failures/ for the artifact",
+      ".failures" in (ROOT / "tests" / "run_all.py").read_text(encoding="utf-8"), True)
 
 print()
 if ok:

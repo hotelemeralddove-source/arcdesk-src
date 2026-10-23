@@ -24,6 +24,10 @@ ROOT = Path(__file__).resolve().parents[1]
 TESTS = sorted(p for p in (ROOT / "tests").glob("test_*.py"))
 
 
+FAILED_OUT: dict[str, str] = {}
+FAIL_DIR = ROOT / ".failures"
+
+
 def main(argv: list[str]) -> int:
     wanted = argv[1:]
     picked = [p for p in TESTS if not wanted or any(w in p.stem for w in wanted)]
@@ -31,6 +35,9 @@ def main(argv: list[str]) -> int:
         print(f"no test matches {wanted}")
         return 2
 
+    if FAIL_DIR.exists():                      # a stale log is worse than none
+        for stale in FAIL_DIR.glob("*.txt"):
+            stale.unlink()
     env = dict(os.environ)
     env["QT_QPA_PLATFORM"] = "offscreen"      # no display needed, ever
     env["PYTHONIOENCODING"] = "utf-8"
@@ -64,6 +71,16 @@ def main(argv: list[str]) -> int:
         if status == "FAIL" and not tail.strip():
             tail = (err.strip().splitlines() or ["(no output)"])[-1]
         results.append((path.stem, status, time.time() - t0, tail if status == "FAIL" else ""))
+        if status == "FAIL":
+            # The summary line says WHICH test failed; this says WHY. Without it a CI
+            # log shows "FAIL test_reading" and nothing else, and diagnosing means
+            # guessing — which is exactly what happened on the first Windows run.
+            kept = (out or err).strip().splitlines()[-12:]
+            FAILED_OUT[path.stem] = "\n".join(kept) or "(the test printed nothing)"
+            (FAIL_DIR).mkdir(exist_ok=True)
+            (FAIL_DIR / f"{path.stem}.txt").write_text(
+                (out or "") + ("\n--- stderr ---\n" + err if err.strip() else ""),
+                encoding="utf-8")
         print(f"{status}  {path.stem:<26} {time.time() - t0:5.1f}s"
               f"{'  ' + tail[:60] if status == 'FAIL' else ''}")
 
@@ -75,6 +92,14 @@ def main(argv: list[str]) -> int:
           + (f" · {skipped} skipped" if skipped else ""))
     if failed:
         print("FAILED:", ", ".join(failed))
+        print()
+        for name in failed:
+            print(f"----- {name} (last 12 lines) -----")
+            body = FAILED_OUT.get(name) or "(no output captured)"
+            for line in body.splitlines():
+                print("   ", line)
+            print()
+        print(f"full logs: {FAIL_DIR}")
         return 1
     print("RESULT: everything passes.")
     return 0

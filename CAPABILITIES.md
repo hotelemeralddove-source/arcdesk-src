@@ -393,6 +393,24 @@ unknown at build time, discovered at runtime.
 
 ---
 
+## Wave 19 — the dependency lie, and a red run that explains itself
+
+The third CI run got all the way to the tests: **48/60**, and the loudest line was
+`test_vision: ModuleNotFoundError: No module named 'PIL'`.
+
+- **`requirements.txt` declared two of the ten packages the app imports.** PySide6 and
+  psutil were listed; Pillow, numpy, pypdf, python-docx, openpyxl, python-pptx and mutagen
+  were not — because they were installed on the machine this was written on. Anyone
+  following the install instructions, and any packaging run, hit a wall the project had
+  written down nowhere. All ten are now declared, with the reason each one exists.
+- **audit section E2** walks every `import` in the app and FAILS if a third-party module is
+  neither declared nor in a documented-optional list (voice engine, GPU clone, scipy…).
+  An undeclared dependency is a promise the project cannot keep.
+- **`run_all.py` now shows WHY.** A red CI log used to say `FAIL test_reading` and stop.
+  Each failing test's last 12 lines print right there, and are written to `.failures/`,
+  which the workflow uploads and prints in the run summary. No more asking for screenshots
+  to find out what broke.
+
 ## Wave 18 — the first real Windows CI run, and what it broke
 
 GitHub's Windows runner ran the suite for the first time and the build went red. Every

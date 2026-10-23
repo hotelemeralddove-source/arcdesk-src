@@ -38,7 +38,11 @@ jobs:
           python -m pip install "pyinstaller>=6"
 
       - name: prove the app works before packaging it
-        run: python tests/run_all.py
+        shell: pwsh
+        run: |
+          # Tee so the full test output survives whether this step passes or fails.
+          python tests/run_all.py 2>&1 | Tee-Object -FilePath tests.log
+          if ($LASTEXITCODE -ne 0) { throw "the test suite failed - see tests.log" }
 
       - name: build the two exes + the installer
         run: packaging\build_all.bat
@@ -67,21 +71,47 @@ jobs:
           "SHA-256  $h  ArcDeskSetup.exe" | Tee-Object -FilePath dist\SHA256SUMS.txt
           Get-Content dist\SHA256SUMS.txt
 
-      - name: keep the log if anything failed
+      - name: keep every log when something failed
         if: failure()
         uses: actions/upload-artifact@v4
         with:
           name: failure-log
+          # tests.log is the whole point: on a red run it can be read from the run page
+          # without hunting through the live log, and pasted into a message.
           path: |
+            tests.log
+            .failures/
             packaging/build_info.txt
             dist/**/*.log
           if-no-files-found: ignore
 
-      - name: which step failed (read this first)
+      - name: the last 40 lines, on the run page itself
         if: failure()
+        shell: pwsh
         run: |
-          "A step above failed. The red X is ON that step — open it and read the last",
-          "30 lines. Nothing was installed on any PC; a failed build changes nothing." | Write-Host
+          $note = @(
+            "## Build failed",
+            "",
+            "Nothing was installed on any PC. A failed build changes nothing.",
+            "",
+            "Download the **failure-log** artifact below for the full output.",
+            ""
+          )
+          # Each failing test writes its own last lines into .failures/<name>.txt, so the
+          # run page shows WHY, not just the name of the test that failed.
+          if (Test-Path .failures) {
+            Get-ChildItem .failures\*.txt | ForEach-Object {
+              $note += "**$($_.Name)**"
+              $note += "``````"
+              $note += (Get-Content $_.FullName -Tail 25)
+              $note += "``````"
+            }
+          } elseif (Test-Path tests.log) {
+            $note += "``````"
+            $note += (Get-Content tests.log -Tail 40)
+            $note += "``````"
+          }
+          $note | Out-File -FilePath $env:GITHUB_STEP_SUMMARY -Encoding utf8 -Append
 
       - uses: actions/upload-artifact@v4
         with:

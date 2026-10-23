@@ -1,2 +1,22 @@
+# What Arc Desk actually imports. Nothing here is optional for the features the
+# app promises: "read any file", "edit an image", "speak", the HUD, the doctor.
+#
+# This list used to be PySide6 + psutil only. On the first real Windows CI run,
+# test_vision died with "No module named 'PIL'" and eight more tests fell over with
+# it — because the code imports Pillow and numpy everywhere and nobody had written
+# them down. An undeclared dependency is a promise the project cannot keep, so
+# tests/test_audit.py now FAILS if an import is not declared here.
 PySide6-Essentials>=6.6,<7
 psutil>=5.9,<8
+
+# images: the art view, photo search, screenshots, the icon, editing
+Pillow>=10,<12
+# numbers: the clone reference, vision, pc_health, the studio
+numpy>=1.26
+
+# reading and editing the documents people actually have
+pypdf>=4.0              # PDF
+python-docx>=1.1        # Word
+openpyxl>=3.1           # Excel
+python-pptx>=0.6.23     # PowerPoint
+mutagen>=1.47           # real music tags, when a file has them
