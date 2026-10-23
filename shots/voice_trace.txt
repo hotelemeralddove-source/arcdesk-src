@@ -1,0 +1,83 @@
+ARC DESK — voice command trace (generated)
+python tools/explain.py "hey jarvis draw an elephant" --run --then "hey jarvis make it purple"
+
+ARC DESK · command trace · "hey jarvis draw an elephant"
+==========================================================================
+
+[1] MICROPHONE (the only simulated stage)
+    ······································································
+    source                 sounddevice → 16 kHz mono, 30 ms chunks
+    gate                   RMS below SILENCE_RMS is dropped, so silence costs nothing
+    note                   in this tracer the audio is skipped; the text is taken as heard
+
+[2] WAKE WORD — phrase matcher (arcdesk/wake/phrases.py)
+    ······································································
+    wake phrase            'hey jarvis'  ·  exit 'bye jarvis'
+    match                  wake   confidence 1.00
+    fuzzy                  on (jervis/jarvas/a jarvis accepted)
+
+[3] COMMAND WINDOW
+    ······································································
+    opens for              7 s, or until 1.1 s of silence after speech
+    exit phrase            'bye jarvis' inside this window returns to normal Windows
+    heard                  'draw an elephant'
+
+[4] SPEECH TO TEXT — Vosk, offline
+    ······································································
+    engine                 vosk (streaming, partial + final results)
+    transcript             'draw an elephant'
+
+[5] WHICH BRAIN
+    ······································································
+    configured             lite
+    class                  local · limit free · allowed
+    chosen                 ARC Lite (rule-based, offline)
+
+[6] UNDERSTANDING — intent → tool call
+    ······································································
+    matcher                regex intents over the same tool registry the model uses
+    tool                   draw({"subject": "elephant", "colour": ""})
+
+[7] EXECUTION — tools.call()
+    ······································································
+    draw                   no confirmation needed
+      →                    drew an elephant in #9aa7b4; saved to /home/user/Pictures/ArcArt/arc_elephant_1792666896.png (vector sketch engine — for photorealistic images run Com
+
+[8] REPLY
+    ······································································
+    text                   drew an elephant in #9aa7b4; saved to /home/user/Pictures/ArcArt/arc_elephant_1792666896.png (vector sketch engine — for photorealistic images run ComfyUI on :8188 and I will use that instead)
+    voice                  Windows SAPI (offline) or eSpeak — spoken only if AI voice is on
+    on screen              console line + ARC's reply bubble
+
+[9] FOLLOW-UP IN THE SAME SESSION — "hey jarvis make it purple"
+    ······································································
+    wake word              not needed again for a few seconds — the window stays open
+    transcript             'make it purple'
+    state                  the sketch from stage 7 is still in memory (tools.current_sketch)
+    tool                   art_edit({"instruction": "make it purple"})
+      →                    colour → purple — new version saved to /home/user/Pictures/ArcArt/arc_elephant_1792666896_v2.png
+
+==========================================================================
+Chain: mic → wake matcher → command window → Vosk → brain → intent → tool → reply
+
+=== how mishearings are treated ===
+
+How the wake matcher handles a bad transcription (phrase = 'hey jarvis')
+
+    engine heard                      result   confidence
+    --------------------------------------------------------------------
+    'hey jarvis'                      wake     1.00
+    'hey  jarvis'                     wake     1.00
+    'hey jervis'                      wake     0.92
+    'a jarvis'                        wake     0.50
+    'jarvis'                          wake     0.00
+    'hey service'                     wake     0.73
+    'hey darvis open notepad'         wake     0.92
+    'bye jarvis'                      exit     0.67
+    'goodbye jarvis'                  exit     0.60
+    'hey what is the weather'         (ignored)0.60
+    'open notepad'                    (ignored)0.22
+
+    'bye jarvis' is checked before the wake phrase, so the exit word can never
+    be mistaken for 'hey jarvis' — fuzzy matching only loosens the spelling,
+    never the meaning.

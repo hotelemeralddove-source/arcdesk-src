@@ -1,0 +1,94 @@
+{
+  "server": "http://127.0.0.1:8080/v1",
+  "model": "/home/user/.local/models/qwen2.5-0.5b-instruct-q4_k_m.gguf",
+  "rows": [
+    {
+      "phrase": "what time is it",
+      "tools": [
+        "time"
+      ],
+      "reply": "It is 12:10 on thursday, 22 october 2026.",
+      "seconds": 0.02,
+      "expected": "time",
+      "called": "time",
+      "hit": true
+    },
+    {
+      "phrase": "how much ram am i using",
+      "tools": [
+        "system_report"
+      ],
+      "reply": "cpu 8% (2 threads); ram 67% used, 0.6 GB free of 1.9 GB; disk 30% used, 17 GB free; top memory: python3(63.2%), jupyter-server(4.0%), python3(3.1%)",
+      "seconds": 0.34,
+      "expected": "system_report",
+      "called": "system_report",
+      "hit": true
+    },
+    {
+      "phrase": "open notepad",
+      "tools": [
+        "open_app"
+      ],
+      "reply": "ERROR launching notepad: FileNotFoundError: [Errno 2] No such file or directory: 'gedit'",
+      "seconds": 0.05,
+      "expected": "open_app",
+      "called": "open_app",
+      "hit": true
+    },
+    {
+      "phrase": "18% of 4500",
+      "tools": [
+        "calc"
+      ],
+      "reply": "810",
+      "seconds": 0.04,
+      "expected": "calc",
+      "called": "calc",
+      "hit": true
+    },
+    {
+      "phrase": "convert 5 km to miles",
+      "tools": [
+        "convert"
+      ],
+      "reply": "That failed: I know these units: byte, cm, day, feet, foot, ft, g, gb, hour, in, inch, kb, kg, km, l, lb, m, mb, mg, mi, mile, min, minute, ml, mm, oz, pound, sec, second, tb, ton, week, yard. For currency, ask for exchange rates.",
+      "seconds": 0.02,
+      "expected": "convert",
+      "called": "convert",
+      "hit": true
+    },
+    {
+      "phrase": "nifty price",
+      "tools": [
+        "stock"
+      ],
+      "reply": "^NSEI: 22,687.65 (-0.54% today, -4.0% in 30 days; range 22,231.80\u201323,635.10). Information, not investment advice.",
+      "seconds": 0.1,
+      "expected": "stock",
+      "called": "stock",
+      "hit": true
+    },
+    {
+      "phrase": "draw a cat",
+      "tools": [
+        "draw"
+      ],
+      "reply": "drew a cat in #9aa7b4; saved to /home/user/Pictures/ArcArt/arc_cat_1792671008.png (vector sketch engine \u2014 for photorealistic images run ComfyUI on :8188 and I will use that instead)",
+      "seconds": 0.15,
+      "expected": "draw",
+      "called": "draw",
+      "hit": true
+    },
+    {
+      "phrase": "set the volume to 20",
+      "tools": [
+        "set_volume"
+      ],
+      "reply": "FileNotFoundError: [Errno 2] No such file or directory: 'amixer'",
+      "seconds": 0.04,
+      "expected": "set_volume",
+      "called": "set_volume",
+      "hit": true
+    }
+  ]
+}

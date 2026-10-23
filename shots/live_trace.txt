@@ -1,0 +1,105 @@
+ARC DESK — voice out + a real local model, measured
+host: 2 vCPU · 2.0 GB RAM · no GPU · llama.cpp b11815 (CPU) · Qwen2.5-1.5B-Instruct Q4_K_M
+generated 2026-10-22T11:20Z · python tools/{say,live}.py
+
+=== 1. what the voice engine is given ===
+$ python tools/say.py --dry
+ARC DESK · voice out
+==========================================================================
+    engine               espeak
+    available            yes
+
+[1] AS WRITTEN (what the reply bubble shows)
+      Drew an elephant in that colour. Saved to
+      ~/Pictures/ArcArt/arc_elephant_1792666838.png — run ComfyUI on
+      :8188 for photorealistic images.
+
+[2] AS SPOKEN (voice.sanitise)
+      Drew an elephant in that colour. Saved to the file arc elephant,
+      run ComfyUI on:8188 for photorealistic images.
+        137 chars → 111 chars · language engine default
+
+[3] CHUNK PLAN — 2 utterance(s), 220 char target
+      1. [ 32] Drew an elephant in that colour.
+      2. [ 78] Saved to the file arc elephant, run ComfyUI on:8188 for phot…
+      Why chunk at all: the first words start sooner, a cancel can land
+      between sentences, and one dead engine call cannot hang for a minute.
+
+[4] skipped (--dry)
+
+=== 2. cancelling: a new sentence silences the old one ===
+$ python tools/say.py --cancel
+ARC DESK · voice out
+==========================================================================
+    engine               espeak
+    available            yes
+
+[1] start a long sentence
+[2] user interrupts: say something new
+    the second sentence finished in 0.06s
+──────────────────────────────────────────────────────────────────────────
+    The old worker checked the generation counter between chunks and
+    returned. No queue, no overlap, nothing to clean up — `voice.stop()`
+    does the same thing without starting a replacement.
+
+=== 3. real audio render ===
+$ python tools/say.py "..." --wav shots/arc_says.wav
+      between sentences, and one dead engine call cannot hang for a minute.
+
+[4] RENDER → shots/arc_says.wav
+      wrote 197172 bytes in 0.03s
+
+=== 4. a real model, round by round (18 core schemas) ===
+$ python tools/live.py --core
+ARC DESK · live model run · "what time is it, and how much ram am i using?"
+==========================================================================
+    server             http://127.0.0.1:8080/v1
+    model              /home/user/.local/models/qwen2.5-1.5b-q4.gguf   (1 available: /home/user/.local/models/qwen2.5-1.5b-q4.gguf)
+    tools offered      18
+
+[round 1] 2 messages · 1304 bytes · 18 tools → 2.47s (snappy)
+    tokens             prompt 1559 · completion 24 · 9.7 tok/s
+    answers            The current time is 10:30 AM. You are using 10% of your RAM.
+
+[executed] 2 tool call(s), real, on this machine
+    time               it is 11:20 on Thursday, 22 October 2026
+    system_report      cpu 0% (2 threads); ram 74% used, 0.5 GB free of 1.9 GB; disk 26% used, 18 GB free; top memory:…
+
+[reply]
+    It is 11:20 on Thursday, 22 October 2026. cpu 0% (2 threads); ram 74% used, 0.5 GB free of 1.9 GB; disk 26% used, 18 GB free; top memory: llama-server(65.1%), jupyter-server(4.0%), python3(3.0%). I measured that here — the model answered without calling a tool, so I did not use its numbers.
+
+──────────────────────────────────────────────────────────────────────────
+    end to end         2.79s · snappy
+    rounds             1
+    lite, same text    0.5 ms · 1 tool call(s) · matched
+
+=== 5. consistency over 3 runs ===
+$ python tools/live.py --core --repeat 3
+ARC DESK · live model run · "what time is it, and how much ram am i using?"
+==========================================================================
+    server             http://127.0.0.1:8080/v1
+    model              /home/user/.local/models/qwen2.5-1.5b-q4.gguf   (1 available: /home/user/.local/models/qwen2.5-1.5b-q4.gguf)
+    tools offered      18
+    run 1: 2 tool call(s) · 13.4s · 9.2 tok/s
+    run 2: 2 tool call(s) · 3.6s · 10.7 tok/s
+    run 3: 2 tool call(s) · 2.3s · 11.8 tok/s
+
+──────────────────────────────────────────────────────────────────────────
+    tool calls         3/3 runs used a tool
+    latency            min 2.3s · max 13.4s
+    verdict            consistent
+
+=== 6. the same phrase with all 26 schemas ===
+$ python tools/live.py --repeat 2
+ARC DESK · live model run · "what time is it, and how much ram am i using?"
+==========================================================================
+    server             http://127.0.0.1:8080/v1
+    model              /home/user/.local/models/qwen2.5-1.5b-q4.gguf   (1 available: /home/user/.local/models/qwen2.5-1.5b-q4.gguf)
+    tools offered      26
+    run 1: 2 tool call(s) · 2.5s · 9.7 tok/s
+    run 2: 2 tool call(s) · 2.5s · 10.0 tok/s
+
+──────────────────────────────────────────────────────────────────────────
+    tool calls         2/2 runs used a tool
+    latency            min 2.5s · max 2.5s
+    verdict            consistent

@@ -1,0 +1,78 @@
+ARC DESK · live local-model runs · Qwen2.5-0.5B-Instruct Q4_K_M · llama.cpp server · 2 CPU threads
+captured 2026-10-22 12:41 UTC in this sandbox · every number below came from running the code
+
+### run 1 — time + memory, with tool routing active (4 tools offered, not all 58)
+==========================================================================
+    server             http://127.0.0.1:8080/v1
+    model              /home/user/.local/models/qwen2.5-0.5b-instruct-q4_k_m.gguf   (1 available: /home/user/.local/models/qwen2.5-0.5b-instruct-q4_k_m.gguf)
+    tools offered      58
+
+[round 1] 2 messages · 1385 bytes · 4 tools → 0.68s (instant)
+    tokens             prompt 642 · completion 15 · 22.1 tok/s
+    asks for           time({})
+
+[round 2] 4 messages · 1662 bytes · 4 tools → 1.85s (snappy)
+    tokens             prompt 695 · completion 36 · 19.5 tok/s
+    answers            The current time is 12:41 on Thursday, 22 October 2026. You are using approximately 22% of your RAM.
+
+[executed] 2 tool call(s), real, on this machine
+    time               it is 12:41 on Thursday, 22 October 2026
+    system_report      cpu 0% (2 threads); ram 39% used, 1.2 GB free of 1.9 GB; disk 31% used, 17 GB free; top memory:…
+
+[reply]
+    It is 12:41 on Thursday, 22 October 2026. cpu 0% (2 threads); ram 39% used, 1.2 GB free of 1.9 GB; disk 31% used, 17 GB free; top memory: llama-server(32.2%), jupyter-server(4.0%), python3(3.1%). I measured that on this machine. The model's own numbers were not checked, so I did not repeat them.
+
+──────────────────────────────────────────────────────────────────────────
+    end to end         2.88s · snappy
+    rounds             2
+    lite, same text    4.0 ms · 1 tool call(s) · matched
+
+### run 2 — a medical question (the model refuses these, so the app never sends it one)
+==========================================================================
+    server             http://127.0.0.1:8080/v1
+    model              /home/user/.local/models/qwen2.5-0.5b-instruct-q4_k_m.gguf   (1 available: /home/user/.local/models/qwen2.5-0.5b-instruct-q4_k_m.gguf)
+    tools offered      58
+
+[round 1] 2 messages · 1393 bytes · 3 tools → 4.05s (slow but usable for a one-off)
+    tokens             prompt 830 · completion 50 · 12.3 tok/s
+    asks for           health({"what": "first_aid", "query": "paracetamol dosage entha", "question": "What is the first aid for paracetamol overdose?"})
+
+[round 2] 4 messages · 2444 bytes · 3 tools → 5.55s (slow but usable for a one-off)
+    tokens             prompt 1053 · completion 94 · 16.9 tok/s
+    answers            Paracetamol is a pain reliever and fever reducer. It is available over the counter. The recommended…
+
+[executed] 1 tool call(s), real, on this machine
+    health             Paracetamol — pain reliever / fever reducer · available over the counter Label range: Adults: 5…
+
+[reply]
+    Paracetamol is a pain reliever and fever reducer. It is available over the counter. The recommended dose is 500-1000 mg per dose, up to 3-4 g in 24 hours. It is important to note that overdose can damage the liver and can be silent for days. It is recommended to consult a doctor if liver disease, malnutrition, heavy alcohol use, or low body weight are present.
+
+──────────────────────────────────────────────────────────────────────────
+    end to end         9.64s · slow but usable for a one-off
+    rounds             2
+    lite, same text    2.3 ms · 1 tool call(s) · matched
+
+### run 3 — market analysis: the model calls the new 'market' tool itself
+==========================================================================
+    server             http://127.0.0.1:8080/v1
+    model              /home/user/.local/models/qwen2.5-0.5b-instruct-q4_k_m.gguf   (1 available: /home/user/.local/models/qwen2.5-0.5b-instruct-q4_k_m.gguf)
+    tools offered      58
+
+[round 1] 2 messages · 1378 bytes · 3 tools → 1.99s (snappy)
+    tokens             prompt 771 · completion 45 · 22.6 tok/s
+    asks for           market({"what": "analyse", "symbol": "RELIANCE", "risk_pct": 0.05, "rule": "trend"})
+
+[round 2] 4 messages · 2520 bytes · 3 tools → 8.43s (slow but usable for a one-off)
+    tokens             prompt 1091 · completion 135 · 16.0 tok/s
+    answers            The analysis of Reliance shows a trend that is down 20 days with a 50-day moving average of 1,252.6…
+
+[executed] 1 tool call(s), real, on this machine
+    market             Reliance — 1,184.50 trend: down (20d avg 1,195.49 · 50d avg 1,252.68) 30 sessions: -4.5% 60-ses…
+
+[reply]
+    The analysis of Reliance shows a trend that is down 20 days with a 50-day moving average of 1,252.68. The 30-day and 60-day sessions have been negative, with a 4.5% loss and a 60-session range of 1,158.90 to 1,334.80. The RSI (14) is at 49.5, neither extreme. The annualised volatility is 25.9% and the worst drawdown in the last 120 sessions is -20.8%.
+
+──────────────────────────────────────────────────────────────────────────
+    end to end         10.55s · too slow for conversation
+    rounds             2
+    lite, same text    1.8 ms · 1 tool call(s) · matched

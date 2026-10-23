@@ -1,0 +1,99 @@
+ARC DESK — how a request is thought through (generated)
+
+$ python tools/think.py
+
+ARC DESK · thinking trace · "how much ram am i using, and draw me a cat"
+==========================================================================
+
+[1] WHAT THE MODEL IS GIVEN (agent._run_llm)
+    ······································································
+    system               1075 chars — persona + honesty rules
+    context              Machine context: OS Linux 6.1.158+, python 3.13, cpu load 0%, ram 0%, Arc Desk mode 'chill'.
+    history              last 12 messages kept, trimmed on every turn
+    tools                26 schemas · 6 KB JSON · tool_choice=auto
+    temperature          0.3 — steady, not creative; you want the same action every time
+    provider             lite (not contacted in this trace)
+    --------------------------------------------------------------------
+    The model sees tools, not code. It cannot touch the machine — it can only
+    ask for a tool by name with JSON arguments. Every guard lives outside it.
+
+[2] ROUND 1 — THE MODEL DECIDES
+    ······································································
+    finish_reason        tool_calls — it chose two tools, it did not answer yet
+    call 1               system_report({})
+    call 2               draw({"subject": "cat"})
+    --------------------------------------------------------------------
+    Why two calls in one round: the model batches independent work. It does not
+    need the RAM number to draw a cat, so waiting between them would only add
+    latency. Dependent steps cannot batch — those become a second round.
+
+[3] EXECUTION — agent._execute() → tools.call()
+    ······································································
+    ran                  system_report({}) → cpu 2% (2 threads); ram 26% used, 1.4 GB free of 1.9 GB; disk 20% used, 19 GB free; top m…
+    ran                  draw({"subject": "cat"}) → drew a cat in #9aa7b4; saved to /home/user/Pictures/ArcArt/arc_cat_1792667113.png …
+    permission gate      spec.confirm is False for both, so no dialog appeared
+    result cap           each result is truncated to 1500 chars before it goes back
+    why cap              a tool that dumps a 2 MB file would otherwise blow the context window
+
+[4] ROUND 2 — THE MODEL READS WHAT ACTUALLY HAPPENED
+    ······································································
+    input now            system + your sentence + its tool calls + 2 tool results
+    finish_reason        stop — no more tools, so this is the answer
+    answer               
+        You are using about 180 MB, and the cat is on your screen — saved to Pictures, ArcArt.
+    loop budget          max 4 tool rounds, 405 ms of real agent time in this trace
+    --------------------------------------------------------------------
+    This second pass is the part people miss. The model is not asked to
+    remember what it tried; the tool result is appended as a message, so
+    round 2 reasons over ground truth instead of its own guess.
+
+[5] OUTPUT — ONE ANSWER, FOUR PLACES (window._on_reply)
+    ······································································
+    console              add_arc(text) — the transcript line you can scroll back through
+    reactor              state SPEAKING for 2.6 s, rings animate, then back to IDLE
+    magic screen         status strip takes text[:70].upper()
+    voice                self.voice.speak(text) — SAPI on Windows, only if ai.voice is on
+    palette              same text via _palette_reply — the floating bar mirrors the console
+    tool log             add_tool(name, args, result) so you can audit what ran
+    --------------------------------------------------------------------
+    Same string everywhere, so what you hear, what you see and what is in the
+    log can never disagree. Speech is the last step and never blocks the UI.
+
+[6] WHEN THE SAME WORDS GO THROUGH LITE INSTEAD
+    ······································································
+    input                'system status'
+    decided              1 tool call(s), no model consulted
+    tool                 system_report({})
+      →                  cpu 0% (2 threads); ram 26% used, 1.4 GB free of 1.9 GB; disk 20% used, 19 GB free; top memory: jupyter-serve…
+    cost                 0 bytes of network, 0 model RAM, ~1 ms
+    --------------------------------------------------------------------
+    Lite and Brain share one tool registry, so a phrase that works offline
+    keeps working when you plug a model in — only the understanding improves.
+
+==========================================================================
+Think: prompt → tool calls → ground-truth results → answer → four outputs.
+
+$ python tools/think.py --confirm "shut down the pc"
+
+ARC DESK · permission gate · "shut down the pc"
+==========================================================================
+
+[1] the model asks for a destructive tool — exactly as it would in round 1
+    tools behind a gate  2 of 26
+    examples             close_app, power
+
+[2] agent._execute() stops before running it
+    sequence             needs_confirm.emit(name, args) → GUI builds a QMessageBox
+    default button       No — an accidental Enter denies, it does not shut down
+    wait                 45 s for your click; no answer inside 45 s counts as denied
+    denied path          returns "user denied permission" to the model as the tool result
+    --------------------------------------------------------------------
+    The model is told the truth: it was denied. It cannot retry its way around
+    you, because every retry comes back through the same gate.
+
+[3] what the user sees
+    dialog               "ARC wants to run:  power"  + the exact JSON arguments
+    console              allowed · power   /   denied · power
+    log                  logs/arcdesk.log records the tool name and the decision
+
+==========================================================================

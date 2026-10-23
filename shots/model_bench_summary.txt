@@ -1,0 +1,32 @@
+  [OK  ] what time is it                  → time             0.0s
+  [OK  ] how much ram am i using          → system_report    0.3s
+  [OK  ] open notepad                     → open_app         0.0s
+  [OK  ] 18% of 4500                      → calc             0.0s
+  [OK  ] convert 5 km to miles            → convert          0.0s
+  [OK  ] nifty price                      → stock            0.1s
+  [OK  ] draw a cat                       → draw             0.1s
+  [OK  ] set the volume to 20             → set_volume       0.0s
+
+──────────────────────────────────────────────────────────────────────────────
+  tool accuracy   8/8 = 100%
+  latency         median 0.0s · min 0.0s · max 0.3s
+  verdict         good enough for conversation
+  compare         the same commands through Lite: 0.2 ms each, 0 tool mistakes
+
+=== same 8 commands, model alone (fast path off) ===
+  [MISS] 18% of 4500                      → (no tool)        3.8s
+         wanted calc; it said: Sure, 18% of 4500 is 762.
+  [MISS] convert 5 km to miles            → (no tool)        3.0s
+         wanted convert; it said: Sure, 5 kilometers is approximately equal to 3.17 miles.
+  [MISS] nifty price                      → (no tool)        3.7s
+         wanted stock; it said: The current price of the Nifty stock index is 24,750.
+  [MISS] draw a cat                       → (no tool)        6.2s
+         wanted draw; it said: Sure, let's draw a cat. I'll use the default colour purple and add some scenery to make it
+  [MISS] set the volume to 20             → (no tool)        6.0s
+         wanted set_volume; it said: Sure, I can help with that. Let's set the system output volume to 20.
+
+──────────────────────────────────────────────────────────────────────────────
+  tool accuracy   1/8 = 12%
+  latency         median 5.3s · min 3.0s · max 6.2s
+  verdict         too unreliable to be the default brain
+  compare         the same commands through Lite: 1.1 ms each, 0 tool mistakes

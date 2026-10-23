@@ -1,0 +1,53 @@
+ARC DESK — 'do it for me' verbs, executed for real (Linux sandbox)
+
+$ python - << (lite.respond -> tools.call)
+> create folder projects
+    -> file_op({"action": "mkdir", "path": "projects"})
+       created folder /tmp/arcdesk-home-cr_7ycj6/projects
+
+> write hello from arc to the file projects/todo.txt
+    -> file_op({"action": "write", "path": "projects/todo.txt", "text": "hello from arc"})
+       wrote /tmp/arcdesk-home-cr_7ycj6/projects/todo.txt (14 chars)
+
+> read the file projects/todo.txt
+    -> read_file({"path": "projects/todo.txt"})
+       hello from arc
+
+> write second line to the file projects/todo.txt
+    -> file_op({"action": "write", "path": "projects/todo.txt", "text": "second line"})
+       wrote /tmp/arcdesk-home-cr_7ycj6/projects/todo.txt (11 chars) (previous version kept as todo.txt.20261022-113136.bak)
+
+> read the file projects/todo.txt
+    -> read_file({"path": "projects/todo.txt"})
+       second line
+
+> find report.docx
+    -> find_file({"name": "report.docx"})
+       no files matching 'report.docx' in Desktop/Documents/Downloads/Pictures
+
+> list windows
+    -> windows({"action": "list"})
+       ERROR: window control needs xdotool on Linux (sudo apt install xdotool). On Windows this works out of the box.
+
+> type good morning
+    -> type_text({"text": "good morning"})
+       ERROR: typing needs xdotool on Linux
+
+> press ctrl s
+    -> press({"keys": "ctrl s"})
+       ERROR: key presses need xdotool on Linux
+
+> what did you do
+    -> action_log({})
+       2026-10-22 11:31:36	file_op	mkdir projects	created folder /tmp/arcdesk-home-cr_7ycj6/projects
+       2026-10-22 11:31:36	file_op	write projects/todo.txt	wrote /tmp/arcdesk-home-cr_7ycj6/projects/todo.txt (14 chars)
+       2026-10-22 11:31:36	read_file	projects/todo.txt	1 lines
+       2026-10-22 11:31:36	file_op	write projects/todo.txt	wrote /tmp/arcdesk-home-cr_7ycj6/projects/todo.txt (11 chars) (previous version kept as todo.txt.2
+
+--- the journal (first lines) ---
+2026-10-22 11:31:36	read_file	projects/todo.txt	1 lines
+2026-10-22 11:31:36	file_op	write projects/todo.txt	wrote /tmp/arcdesk-home-cr_7ycj6/projects/todo.txt (11 chars) (previous version kept as todo.txt.20261022-113136.bak)
+2026-10-22 11:31:36	read_file	projects/todo.txt	1 lines
+2026-10-22 11:31:36	windows	list	ERROR: window control needs xdotool on Linux (sudo apt install xdotool). On Windows this works out of the box.
+2026-10-22 11:31:36	type_text	12 chars	ERROR: typing needs xdotool on Linux
+2026-10-22 11:31:36	press	ctrl s	ERROR: key presses need xdotool on Linux

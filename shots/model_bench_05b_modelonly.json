@@ -1,0 +1,83 @@
+{
+  "server": "http://127.0.0.1:8080/v1",
+  "model": "/home/user/.local/models/qwen2.5-0.5b-instruct-q4_k_m.gguf",
+  "rows": [
+    {
+      "phrase": "what time is it",
+      "tools": [
+        "time"
+      ],
+      "reply": "The current time is 12:10 on Thursday, October 22, 2026.",
+      "seconds": 5.83,
+      "expected": "time",
+      "called": "time",
+      "hit": true
+    },
+    {
+      "phrase": "how much ram am i using",
+      "tools": [
+        "time",
+        "system_report"
+      ],
+      "reply": "It is 12:10 on Thursday, 22 October 2026. cpu 0% (2 threads); ram 67% used, 0.6 GB free of 1.9 GB; disk 30% used, 17 GB free; top memory: python3(63.5%), jupyter-server(4.0%), python3(3.1%). I measured that on this machine. The model's own numbers were not checked, so I did not repeat them.",
+      "seconds": 4.94,
+      "expected": "system_report",
+      "called": "time",
+      "hit": false
+    },
+    {
+      "phrase": "open notepad",
+      "tools": [],
+      "reply": "I'm glad you asked for a notepad. Let me open it now.",
+      "seconds": 5.23,
+      "expected": "open_app",
+      "called": "",
+      "hit": false
+    },
+    {
+      "phrase": "18% of 4500",
+      "tools": [],
+      "reply": "Sure, let's calculate 18% of 4500.",
+      "seconds": 3.83,
+      "expected": "calc",
+      "called": "",
+      "hit": false
+    },
+    {
+      "phrase": "convert 5 km to miles",
+      "tools": [],
+      "reply": "Sure, 5 kilometers is approximately 3.102 miles.",
+      "seconds": 2.89,
+      "expected": "convert",
+      "called": "",
+      "hit": false
+    },
+    {
+      "phrase": "nifty price",
+      "tools": [],
+      "reply": "The current price of the Nifty stock is 16,500.",
+      "seconds": 3.7,
+      "expected": "stock",
+      "called": "",
+      "hit": false
+    },
+    {
+      "phrase": "draw a cat",
+      "tools": [],
+      "reply": "Sure, here's a cat for you: \ud83d\udc31",
+      "seconds": 4.8,
+      "expected": "draw",
+      "called": "",
+      "hit": false
+    },
+    {
+      "phrase": "set the volume to 20",
+      "tools": [],
+      "reply": "Sure, I can help with that. Let me know when you want to use the volume again.",
+      "seconds": 6.13,
+      "expected": "set_volume",
+      "called": "",
+      "hit": false
+    }
+  ]
+}

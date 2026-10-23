@@ -1,0 +1,5 @@
+    waiting for a model server (up to 25s)…
+ARC DESK · live model run · "what time is it, and how much ram am i using?"
+==========================================================================
+    no local model answered on 8080 / 11434 / 1234.
+    start one, e.g.:  llama-server -m model.gguf --port 8080 --jinja

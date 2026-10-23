@@ -1,0 +1,76 @@
+#!/usr/bin/env python3
+"""Run every test with the right environment, in one command.
+
+    python tests/run_all.py            # all tests
+    python tests/run_all.py magic docs # only those whose name contains it
+
+Why this file exists: five of the tests need ``QT_QPA_PLATFORM=offscreen`` and all
+of them should run against a throw-away settings folder. Running them by hand
+without that produced *silence* instead of a failure, which is worse than a red
+test. Now there is exactly one way to validate the build, and it cannot be
+forgotten.
+
+Exit code 0 only when every test passed.
+"""
+from __future__ import annotations
+
+import os
+import subprocess
+import sys
+import time
+from pathlib import Path
+
+ROOT = Path(__file__).resolve().parents[1]
+TESTS = sorted(p for p in (ROOT / "tests").glob("test_*.py"))
+
+
+def main(argv: list[str]) -> int:
+    wanted = argv[1:]
+    picked = [p for p in TESTS if not wanted or any(w in p.stem for w in wanted)]
+    if not picked:
+        print(f"no test matches {wanted}")
+        return 2
+
+    env = dict(os.environ)
+    env["QT_QPA_PLATFORM"] = "offscreen"      # no display needed, ever
+    env["PYTHONIOENCODING"] = "utf-8"
+    env.pop("ARCDESK_HOME", None)             # each test makes its own sandbox
+
+    print(f"Arc Desk · {len(picked)} tests")
+    print("=" * 62)
+    results: list[tuple[str, str, float, str]] = []
+    started = time.time()
+    for path in picked:
+        t0 = time.time()
+        proc = subprocess.run([sys.executable, str(path)], cwd=str(ROOT), env=env,
+                              capture_output=True, text=True, timeout=300)
+        # A test that could not run (e.g. its port is taken) exits 0 and says SKIP.
+        # That is not a pass and must never be reported as one.
+        if proc.returncode == 0 and "SKIP" in proc.stdout and "PASS" not in proc.stdout:
+            status = "SKIP"
+        elif proc.returncode == 0 and ("PASS" in proc.stdout or "ALL PASS" in proc.stdout):
+            status = "PASS"
+        else:
+            status = "FAIL"
+        tail = (proc.stdout.strip().splitlines() or [""])[-1]
+        if status == "FAIL" and not tail.strip():
+            tail = (proc.stderr.strip().splitlines() or ["(no output)"])[-1]
+        results.append((path.stem, status, time.time() - t0, tail if status == "FAIL" else ""))
+        print(f"{status}  {path.stem:<26} {time.time() - t0:5.1f}s"
+              f"{'  ' + tail[:60] if status == 'FAIL' else ''}")
+
+    passed = sum(1 for _, st, _, _ in results if st == "PASS")
+    skipped = sum(1 for _, st, _, _ in results if st == "SKIP")
+    failed = [n for n, st, _, _ in results if st == "FAIL"]
+    print("=" * 62)
+    print(f"{passed}/{len(results)} passed in {time.time() - started:.1f}s"
+          + (f" · {skipped} skipped" if skipped else ""))
+    if failed:
+        print("FAILED:", ", ".join(failed))
+        return 1
+    print("RESULT: everything passes.")
+    return 0
+
+
+if __name__ == "__main__":
+    raise SystemExit(main(sys.argv))

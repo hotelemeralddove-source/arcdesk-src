@@ -1,0 +1,41 @@
+ARC DESK — eyes, inside-app control, email and calendar (Linux sandbox, no display)
+generated 2026-10-22T11:38Z
+
+=== 1. a fake 'Photoshop window' is drawn, then read ===
+    drew /tmp/demo_window.png (900x320): a blue 'Save file' button + an error line + a menu
+
+=== 2. OCR pass 1 — whole screen ===
+    Error | 0x80070005: | access | is | denied | Photoshop | Settings | Export
+    note: the white label on the blue button is MISSING — page segmentation drops it
+
+=== 3. OCR pass 2 — detect UI rectangles, read each one ===
+    ['Save', 'file']
+
+=== 4. 'click Save file' — where would the mouse go? ===
+    found 'Save file' -> click (109, 70)  [button spans 40..260 x 40..100]
+    the click itself is not executed here: no display in this sandbox
+
+=== 5. 'click Export' and a miss ===
+    'Export'             -> 'Export' at (324, 245)
+    'access is denied'   -> 'access is denied' at (344, 172)
+    'Buy now'            -> not on screen (honest miss)
+
+=== 6. inside-app control tree ===
+    no accessibility tree on this system (install pyatspi on Linux). I can still read the screen with OCR — ask me to list screen text.
+    (no AT-SPI in this container — on Windows this is UIAutomation, on macOS AX)
+
+=== 7. calendar — a real .ics file ===
+    event 'meeting with raj' on Fri 23 Oct 16:00-16:45 saved to arc_20261023_1600_879.ics
+    Fri 23 Oct 16:00 — meeting with raj
+
+=== 8. email — refuses without a password, and says what to set ===
+    ERROR: email is not configured yet. Add host, port, user and from under "comms": {"email": {...}} in settings.json — INSTALL.md has a printable example. Nothing is stored until you do.
+    opened your mail app with a draft to raj@example.com
+
+=== 9. every one of these is understandable offline (ARC Lite) ===
+    'read my screen'                                     -> screen_text({})
+    'click Save file'                                    -> click_text({"text": "save file"})
+    'what is on my calendar'                             -> calendar({"action": "list", "days": 7})
+    'add meeting at 4pm tomorrow'                        -> calendar({"action": "add", "title": "meeting", "when": "tomorrow 4pm")
+    'send an email to raj@example.com about the invoice' -> email_send({"to": "raj@example.com", "subject": "the invoice", "body": )
+    'whatsapp +919876543210 saying on my way'            -> whatsapp_send({"number": "+919876543210", "message": "on my way"})
