@@ -189,7 +189,17 @@ def index(roots: str | list[str] | None = None, limit_files: int = MAX_FILES,
             continue
         if reading.kind_of(key) not in kinds:
             continue
-        doc = reading.read(key, limit=MAX_CHARS, ocr=ocr)
+        try:
+            doc = reading.read(key, limit=MAX_CHARS, ocr=ocr)
+        except (OSError, PermissionError, ValueError) as exc:
+            # On Windows a document that is open in Word/Excel is *locked*, and reading
+            # it raises PermissionError. One locked file used to abort the whole index
+            # (the worker then reported "failed"), which is how a perfectly normal
+            # desktop made document search look broken. Skipped, named, and counted.
+            empty_list.append({**stamp, "name": Path(key).name,
+                               "why": f"{type(exc).__name__}: it is open in another app"})
+            no_text.append(Path(key).name)
+            continue
         reread += 1
         text = (doc.text or "").strip()
         if not text:

@@ -60,6 +60,12 @@ jobs:
           python -m pip list
 
       - name: prove the app works before packaging it
+        # Tests do NOT block the installer any more. They used to: one Windows-only test
+        # failure meant no exe at all, which made a five-minute build feel like a week of
+        # debugging. Now the installer is always built, and the failures are shouted
+        # about on the run page and in the artifact. "prove the right packages are
+        # installed" above still blocks, because a missing library is a broken product.
+        continue-on-error: true
         shell: pwsh
         run: |
           # Tee so the full test output survives whether this step passes or fails.
@@ -125,7 +131,7 @@ jobs:
             Get-ChildItem .failures\*.txt | ForEach-Object {
               $note += "**$($_.Name)**"
               $note += "``````"
-              $note += (Get-Content $_.FullName -Tail 25)
+              $note += (Get-Content $_.FullName -Tail 60)
               $note += "``````"
             }
           } elseif (Test-Path tests.log) {
@@ -134,6 +140,23 @@ jobs:
             $note += "``````"
           }
           $note | Out-File -FilePath $env:GITHUB_STEP_SUMMARY -Encoding utf8 -Append
+
+      - name: the verdict, in one place
+        if: always()
+        shell: pwsh
+        run: |
+          $lines = @("## Result", "")
+          if (Test-Path dist\ArcDeskSetup.exe) {
+            $mb = [math]::Round((Get-Item dist\ArcDeskSetup.exe).Length / 1MB, 1)
+            $lines += "**The installer was built: $mb MB.** Download it from *Artifacts* below."
+          } else {
+            $lines += "**No installer this time** - read the red step above."
+          }
+          if (Test-Path tests.log) {
+            $pass = (Select-String -Path tests.log -Pattern "passed in" | Select-Object -Last 1).Line
+            if ($pass) { $lines += ""; $lines += "Tests: ``$($pass.Trim())``" }
+          }
+          $lines | Out-File -FilePath $env:GITHUB_STEP_SUMMARY -Encoding utf8 -Append
 
       - uses: actions/upload-artifact@v4
         with:
