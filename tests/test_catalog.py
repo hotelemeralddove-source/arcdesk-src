@@ -102,9 +102,9 @@ def main() -> int:
     import github_scan_md
     tmp = tempfile.mkdtemp(prefix="arcdesk-md-") + "/GITHUB.md"
     github_scan_md.write_markdown(tmp)
-    generated = Path(tmp).read_text()
+    generated = Path(tmp).read_text(encoding="utf-8")
     committed_path = Path(__file__).resolve().parents[1] / "GITHUB.md"
-    committed = committed_path.read_text() if committed_path.exists() else ""
+    committed = committed_path.read_text(encoding="utf-8") if committed_path.exists() else ""
     same = generated.strip() == committed.strip()
     print(f"8) GITHUB.md in sync   : {'OK' if same else 'STALE'}  "
           f"({len(generated.splitlines())} lines)")

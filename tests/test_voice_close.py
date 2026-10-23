@@ -165,7 +165,7 @@ check("bye_action=quit asks for a hard close", route(win4, "quit"), "hard")
 
 # the old behaviour — the bug this wave fixed — must be gone
 check("it no longer just prints 'magic mode is not active' and does nothing",
-      "_apply_bye_action" in (ROOT / "arcdesk" / "widgets" / "window.py").read_text())
+      "_apply_bye_action" in (ROOT / "arcdesk" / "widgets" / "window.py").read_text(encoding="utf-8"))
 
 print("5. the settings window offers all three")
 from arcdesk.theme import get_theme  # noqa: E402

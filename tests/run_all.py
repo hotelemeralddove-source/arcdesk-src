@@ -42,19 +42,27 @@ def main(argv: list[str]) -> int:
     started = time.time()
     for path in picked:
         t0 = time.time()
+        # encoding="utf-8" is not optional. On Windows the default is the ANSI code
+        # page (cp1252), and the first test that prints a user-visible dash or arrow
+        # raised UnicodeDecodeError inside the reader thread — leaving proc.stdout as
+        # None, which then crashed the *runner* with "argument of type 'NoneType' is
+        # not iterable". On GitHub's Windows runner that failed the build at test 13.
         proc = subprocess.run([sys.executable, str(path)], cwd=str(ROOT), env=env,
-                              capture_output=True, text=True, timeout=300)
+                              capture_output=True, text=True, encoding="utf-8",
+                              errors="replace", timeout=300)
+        out = proc.stdout or ""          # None if the child produced nothing readable
+        err = proc.stderr or ""
         # A test that could not run (e.g. its port is taken) exits 0 and says SKIP.
         # That is not a pass and must never be reported as one.
-        if proc.returncode == 0 and "SKIP" in proc.stdout and "PASS" not in proc.stdout:
+        if proc.returncode == 0 and "SKIP" in out and "PASS" not in out:
             status = "SKIP"
-        elif proc.returncode == 0 and ("PASS" in proc.stdout or "ALL PASS" in proc.stdout):
+        elif proc.returncode == 0 and ("PASS" in out or "ALL PASS" in out):
             status = "PASS"
         else:
             status = "FAIL"
-        tail = (proc.stdout.strip().splitlines() or [""])[-1]
+        tail = (out.strip().splitlines() or [""])[-1]
         if status == "FAIL" and not tail.strip():
-            tail = (proc.stderr.strip().splitlines() or ["(no output)"])[-1]
+            tail = (err.strip().splitlines() or ["(no output)"])[-1]
         results.append((path.stem, status, time.time() - t0, tail if status == "FAIL" else ""))
         print(f"{status}  {path.stem:<26} {time.time() - t0:5.1f}s"
               f"{'  ' + tail[:60] if status == 'FAIL' else ''}")

@@ -394,6 +394,32 @@ for rel, why in (("run.py", "the entry point"),
     p = ROOT / rel
     check(f"file exists: {rel} ({why})", p.is_file() and p.stat().st_size > 20, True)
 
+print("\nF. Windows — the things that only break on someone else's machine")
+# Every one of these was a real failure on GitHub's Windows runner.
+runall = (ROOT / "tests" / "run_all.py").read_text(encoding="utf-8")
+check("run_all decodes child output as UTF-8", 'encoding="utf-8"' in runall, True)
+check("run_all survives a child that prints nothing readable", "proc.stdout or" in runall,
+      True)
+bare_reads, bare_writes = [], []
+for src_file in list((ROOT / "tests").glob("*.py")) + \
+        list((ROOT / "arcdesk").rglob("*.py")) + list((ROOT / "tools").glob("*.py")):
+    t = src_file.read_text(encoding="utf-8")
+    if ".read_text" + "()" in t:
+        bare_reads.append(src_file.name)
+    if "text=True" in t and "encoding" not in t and src_file.name in ("run_all.py",):
+        bare_writes.append(src_file.name)
+check("nothing reads a file with the platform's default encoding", bare_reads, [])
+check("no subprocess is decoded with the platform default", bare_writes, [])
+
+spec = (ROOT / "packaging" / "arcdesk.spec").read_text(encoding="utf-8")
+check("the spec writes its build info as UTF-8", 'encoding="utf-8"' in spec, True)
+workflow = (ROOT / ".github" / "workflows" / "build-windows.yml").read_text(encoding="utf-8")
+code_lines = [ln for ln in workflow.splitlines() if not ln.strip().startswith("#")]
+check("CI never reads a windowed exe's $LASTEXITCODE directly",
+      "Start-Process" in workflow
+      and not any("$LASTEXITCODE" in ln for ln in code_lines), True)
+check("CI keeps a log when something fails", "if: failure()" in workflow, True)
+
 print()
 if ok:
     print("RESULT: ALL PASS — every question in the sentence was answered by a measurement")

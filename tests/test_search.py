@@ -35,10 +35,10 @@ def check(label: str, got, want=True) -> None:
 home = Path(HOME)
 (home / "Documents" / "invoices").mkdir(parents=True)
 (home / "Downloads").mkdir()
-(home / "Documents" / "invoices" / "march-invoice.pdf").write_text("pdf-ish")
-(home / "Downloads" / "holiday-photo.jpg").write_text("jpg-ish")
+(home / "Documents" / "invoices" / "march-invoice.pdf").write_text("pdf-ish", encoding='utf-8')
+(home / "Downloads" / "holiday-photo.jpg").write_text("jpg-ish", encoding='utf-8')
 (home / "Documents" / "notes.txt").write_text(
-    "the arc reactor needs a new coolant loop\nsecond line\n")
+    "the arc reactor needs a new coolant loop\nsecond line\n", encoding='utf-8')
 
 print("1) the index knows what is in the folders")
 before = set(str(p) for p in home.rglob("*"))
@@ -66,7 +66,7 @@ print("4) grep reads inside text files, read-only")
 grep = search.find("coolant", grep=True)
 check("grep found the line", "notes.txt" in grep, True)
 check("file is unchanged",
-      "coolant" in (home / "Documents" / "notes.txt").read_text(), True)
+      "coolant" in (home / "Documents" / "notes.txt").read_text(encoding="utf-8"), True)
 
 print("5) a miss is a miss")
 check("nonsense finds nothing",

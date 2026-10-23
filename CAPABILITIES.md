@@ -393,6 +393,35 @@ unknown at build time, discovered at runtime.
 
 ---
 
+## Wave 18 — the first real Windows CI run, and what it broke
+
+GitHub's Windows runner ran the suite for the first time and the build went red. Every
+failure was real and none of them could appear on Linux:
+
+- **`tests/run_all.py` decoded child output with the platform default.** On Windows that
+  is cp1252, so the first test that printed a dash raised `UnicodeDecodeError` inside the
+  reader thread, leaving `proc.stdout` as `None` and crashing the runner with
+  *"argument of type 'NoneType' is not iterable"* — which then marked three healthy tests
+  as FAIL. Now `encoding="utf-8", errors="replace"`, and `proc.stdout or ""` everywhere.
+- **Six test files read files with the default encoding too** — `test_catalog` died on
+  `GITHUB.md` (UTF-8) with a cp1252 decode error before it could even print a result.
+- **`test_backup` wrote a sparse file the size of the disk + 5 GB** to prove a refusal.
+  On NTFS that cost 192 s of real runner time. The free space is now injected, no I/O.
+- **A plain WAV needed ffmpeg.** `clone.import_reference()` sent any WAV that was not
+  already 16-bit mono through ffmpeg; with no ffmpeg (the CI runner) importing your own
+  recording failed with *"ffmpeg is needed"* — for a file Python reads fine.
+  `_read_pcm_any()` now reads 8/16/32-bit WAVs, averages stereo, resamples and writes the
+  24 kHz reference **with no ffmpeg at all**; only real codecs (mp3/mp4/m4a/webm) still
+  need it, and the message says which file needs what.
+- **`test_holo` graded the frame budget in absolute milliseconds**, which is unfair on a
+  shared 2-core runner. It now measures a blank-frame floor first and grades against
+  `max(22 ms, 6 x floor)` — machine-relative, so a real regression still fails on any box.
+- **CI smoke test read `$LASTEXITCODE` from a windowed exe** (which never sets it), so a
+  good build would have been failed by its own check. `Start-Process -PassThru` now reads
+  the real exit code, and a `if: failure()` step uploads the log.
+- **new audit section F** asserts all of this stays fixed: UTF-8 everywhere, no bare
+  `read_text()`, no absolute-limit timing, no `$LASTEXITCODE` on a frozen window.
+
 ## Wave 17 — the audit: every promise measured, two more dead things fixed
 
 - **new `tests/test_audit.py`** — the user's one-sentence question turned into 60

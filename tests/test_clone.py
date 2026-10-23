@@ -119,6 +119,24 @@ clone.engines = lambda: weird
 check("Tamil -> piper (real Tamil, wrong voice)", clone.route("ta"), "piper")
 check("English -> xtts (clone works)", clone.route("en"), "xtts")
 
+print("\n4b) a plain WAV imports even with NO ffmpeg on the machine")
+# The Windows CI runner has no ffmpeg. A 16 kHz WAV went through the ffmpeg branch and
+# the import failed with "ffmpeg is needed" — for a file Python reads perfectly well.
+_saved_ff = clone._ffmpeg
+clone._ffmpeg = lambda: ""
+try:
+    plain = write(tone(9.0, 16000, silence_after=0.5), 16000, "plain16k.wav")
+    got_plain = clone.import_reference(plain)
+    check("imported a 16 kHz WAV without ffmpeg", got_plain["ok"], True)
+    check("...and it is now 24 kHz as promised",
+          wave.open(str(Path(clone.voice_dir()) / "reference.wav")).getframerate(), 24000)
+    mp3ish = Path(HOME) / "fake.mp3"
+    mp3ish.write_bytes(b"not really an mp3")
+    check("but a real codec still needs ffmpeg, and says so",
+          "ffmpeg" in clone.import_reference(str(mp3ish))["message"].lower(), True)
+finally:
+    clone._ffmpeg = _saved_ff
+
 print("\n5) a clean 8 s clip becomes the reference")
 clean = write(tone(8.0, 16000, silence_after=1.0), 16000, "clean.wav")
 got = clone.import_reference(clean, "this is my voice")
@@ -126,7 +144,7 @@ check("imported", got["ok"])
 check("about 8 s kept", 7.0 <= got["seconds"] <= 8.2, True)
 ref = Path(clone.voice_dir()) / "reference.wav"
 check("reference.wav written", ref.exists())
-check("transcript stored", (Path(clone.voice_dir()) / "reference.txt").read_text().strip(),
+check("transcript stored", (Path(clone.voice_dir()) / "reference.txt").read_text(encoding="utf-8").strip(),
       "this is my voice")
 with wave.open(str(ref)) as w:
     check("mono", w.getnchannels(), 1)

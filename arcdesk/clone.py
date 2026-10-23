@@ -36,6 +36,7 @@ import json
 import os
 import shutil
 import subprocess
+import sys
 import wave
 from pathlib import Path
 
@@ -223,6 +224,43 @@ def _read_mono(path: Path) -> tuple[list[float], int]:
         data.frombytes(w.readframes(w.getnframes()))
     scale = 1.0 / 32768.0
     return [s * scale for s in data], sr
+
+
+def _read_pcm_any(path: Path) -> tuple[list[float], int]:
+    """Read ANY uncompressed WAV into mono floats — no ffmpeg involved.
+
+    The old code sent everything that was not already 16-bit mono through ffmpeg. On a
+    machine without ffmpeg that meant "this file cannot be imported", for a file Python
+    can read by itself. Now only real codecs (mp3, mp4, m4a, webm …) need ffmpeg.
+    """
+    import array
+
+    with wave.open(str(path)) as w:
+        channels = w.getnchannels()
+        width = w.getsampwidth()
+        sr = w.getframerate()
+        frames = w.readframes(w.getnframes())
+    if width == 1:                                  # 8-bit unsigned
+        raw = array.array("B", frames)
+        values = [(v - 128) / 128.0 for v in raw]
+    elif width == 2:
+        raw = array.array("h")
+        raw.frombytes(frames)
+        if sys.byteorder == "big":
+            raw.byteswap()
+        values = [v / 32768.0 for v in raw]
+    elif width == 4:
+        raw = array.array("i")
+        raw.frombytes(frames)
+        if sys.byteorder == "big":
+            raw.byteswap()
+        values = [v / 2147483648.0 for v in raw]
+    else:
+        raise ValueError(f"unsupported sample width: {width} bytes")
+    if channels > 1:                                # average the channels
+        values = [sum(values[i:i + channels]) / channels
+                  for i in range(0, len(values) - channels + 1, channels)]
+    return values, sr
 
 
 def _resample(samples: list[float], sr: int, target: int = SAMPLE_RATE) -> list[float]:
@@ -469,9 +507,22 @@ def import_reference(src: str, transcript_text: str = "") -> dict:
     work = voice_dir()
     raw = work / "reference_raw.wav"
     try:
-        if source.suffix.lower() == ".wav" and _canonical(source):
-            shutil.copyfile(source, raw)
-        else:
+        samples = sr = None
+        if source.suffix.lower() == ".wav":
+            if _canonical(source):
+                shutil.copyfile(source, raw)
+                samples, sr = _read_mono(raw)
+            else:
+                # a WAV Python can read itself: no ffmpeg, no download, no excuse
+                try:
+                    samples, sr = _read_pcm_any(source)
+                    if sr != SAMPLE_RATE:
+                        samples = _resample(samples, sr, SAMPLE_RATE)
+                        sr = SAMPLE_RATE
+                    _write_mono(samples, sr, raw)
+                except Exception:                   # noqa: BLE001 — fall through to ffmpeg
+                    samples = None
+        if samples is None:
             exe = _ffmpeg()
             if not exe:
                 return {"ok": False,
@@ -484,8 +535,8 @@ def import_reference(src: str, transcript_text: str = "") -> dict:
             if done.returncode != 0 or not raw.exists():
                 return {"ok": False,
                         "message": f"ffmpeg could not read it: {(done.stderr or '')[-200:]}"}
+            samples, sr = _read_mono(raw)
 
-        samples, sr = _read_mono(raw)
         if sr != SAMPLE_RATE:                 # the engines want 24 kHz; keep the promise
             samples = _resample(samples, sr, SAMPLE_RATE)
             sr = SAMPLE_RATE

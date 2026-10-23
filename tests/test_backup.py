@@ -166,18 +166,19 @@ check("no disk attached says so", "external disk" in no_target["error"]
       or "second drive" in no_target["error"], True)
 
 print("7) not enough room is refused before a single byte is written")
-try:
-    import shutil as _sh
-    free_gb = _sh.disk_usage(str(target)).free / 1024 ** 3
-except OSError:
-    free_gb = 0
-huge = root / "Huge"
-huge.mkdir()
-with open(huge / "fat.bin", "wb") as handle:
-    handle.truncate(int((free_gb + 5) * 1024 ** 3))   # sparse: costs no real space
-room = backup.copy(str(huge), str(target))
+# This section used to create a sparse file the size of the free space + 5 GB and let
+# copy() run. On NTFS that is not free: the run spent 192 s on the Windows CI runner and
+# told nobody anything new. The guard only needs the *reported* free space, so it is
+# injected — the same thing the app sees when a drive really is full, with no I/O at all.
+import arcdesk.backup as _bk2
+
+_orig2 = _bk2.plan
+_bk2.plan = _plan_with_free(1e-6)          # ~1 KB free, ~400 KB to copy
+before = len(backup.backups(str(target)))
+room = backup.copy(str(src), str(target))
 check("it refused to fill the disk", "not enough room" in room["error"].lower(), True)
-check("and created no folder", len(backup.backups(str(target))), 2)
+check("and created no folder", len(backup.backups(str(target))), before)
+_bk2.plan = _orig2
 
 print("8) autostart: one per-user entry, verified, reversible")
 os.environ["ARCDESK_USER_HOME"] = str(root)

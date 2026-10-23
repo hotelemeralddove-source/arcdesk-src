@@ -136,7 +136,7 @@ print("\n7) profiles are files inside the app folder — a new laptop starts emp
 path = Path(voiceid._profiles_file())
 check("profiles.json exists", path.exists())
 check("inside ARCDESK_HOME", str(path).startswith(HOME), True)
-saved = json.loads(path.read_text())
+saved = json.loads(path.read_text(encoding="utf-8"))
 check("contains both people", sorted(saved), ["me", "sloppy", "wife"])
 check("no audio stored", any(k.endswith(".wav") for k in saved), False)
 check("forget removes one", voiceid.forget("sloppy"), True)

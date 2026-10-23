@@ -44,10 +44,21 @@ jobs:
         run: packaging\build_all.bat
 
       - name: smoke-test the frozen exe
+        shell: pwsh
         run: |
-          .\dist\ArcDesk\ArcDesk.exe --version
-          .\dist\ArcDesk\ArcDesk.exe --doctor
-          if ($LASTEXITCODE -ne 0) { exit 1 }
+          # A windowed exe (console=False) does NOT set $LASTEXITCODE when started
+          # directly — the check below would read a stale value and fail a good build.
+          # Start-Process -Wait -PassThru is the way to get a real exit code.
+          $exe = ".\dist\ArcDesk\ArcDesk.exe"
+          if (-not (Test-Path $exe)) { throw "build produced no ArcDesk.exe" }
+          if (-not (Test-Path ".\dist\ArcDesk\ArcDeskVoice.exe")) {
+            throw "ArcDeskVoice.exe missing next to ArcDesk.exe"
+          }
+          $p = Start-Process -FilePath $exe -ArgumentList "--version" -Wait -PassThru -NoNewWindow
+          "version exit: $($p.ExitCode)"
+          $p = Start-Process -FilePath $exe -ArgumentList "--doctor" -Wait -PassThru -NoNewWindow
+          "doctor  exit: $($p.ExitCode)"
+          if ($p.ExitCode -ne 0) { throw "--doctor failed inside the frozen build" }
 
       - name: what was built, and its checksum
         run: |
@@ -55,6 +66,22 @@ jobs:
           $h = (Get-FileHash dist\ArcDeskSetup.exe -Algorithm SHA256).Hash
           "SHA-256  $h  ArcDeskSetup.exe" | Tee-Object -FilePath dist\SHA256SUMS.txt
           Get-Content dist\SHA256SUMS.txt
+
+      - name: keep the log if anything failed
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: failure-log
+          path: |
+            packaging/build_info.txt
+            dist/**/*.log
+          if-no-files-found: ignore
+
+      - name: which step failed (read this first)
+        if: failure()
+        run: |
+          "A step above failed. The red X is ON that step — open it and read the last",
+          "30 lines. Nothing was installed on any PC; a failed build changes nothing." | Write-Host
 
       - uses: actions/upload-artifact@v4
         with:

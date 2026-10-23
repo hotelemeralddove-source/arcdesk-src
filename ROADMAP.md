@@ -139,6 +139,14 @@ Still open:
 | AI feature turns into a subscription | stay opt-in, offline companion works without it |
 | Feature creep kills the budget | every phase has a RAM/CPU gate before the next starts |
 
+## Phase 18 — proved on Windows ✅ (this build)
+
+- The first CI run on GitHub's Windows runner went red and taught the project five things
+  Linux could not: platform-default decoding in the test runner and six test files, a
+  192-second sparse-file test, WAV import demanding ffmpeg, an absolute frame budget that
+  penalised a slow runner, and a smoke test reading an exit code a windowed exe never
+  sets. All fixed; audit section F keeps them fixed.
+
 ## Phase 17 — audited, not asserted ✅ (this build)
 
 - **`tests/test_audit.py`**: Settings wired both ways, 88 tools valid, defaults on/off with
