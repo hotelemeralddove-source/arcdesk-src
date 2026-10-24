@@ -20,6 +20,12 @@ Design notes that matter:
   * This directory is named `packaging/`, NOT `build/`: some tooling (and this
     project's own workspace snapshots) treats a folder called `build` as disposable.
 """
+import sys                      # NOT optional: PyInstaller's spec namespace provides
+                               # `os` and the build classes, and nothing else. Without
+                               # this line `sys.path.insert(...)` below raised NameError,
+                               # PyInstaller exited in 2 seconds, and on GitHub Actions
+                               # the "fallback build" then shipped an exe with the default
+                               # icon, no data files and no voice exe. Fixes run #14.
 from pathlib import Path
 
 from PyInstaller.utils.hooks import collect_submodules
@@ -99,6 +105,12 @@ for page in ("KNOWS_PAGE.html", "STUDIO_PAGE.html", "TOOLS_PAGE.html"):
 
 icon = str(ROOT / "shots" / "arc_icon.ico")
 icon_arg = icon if Path(icon).is_file() else None
+if icon_arg is None:
+    # Not a warning: PyInstaller's fallback icon is the reason a desktop shortcut can
+    # look like a Python script. tools/preflight_win.py fails the build before this,
+    # and this line explains it in the PyInstaller log too.
+    print("[spec] WARNING: shots/arc_icon.ico is missing - the exe will carry "
+          "PyInstaller's own icon, and the shortcut will NOT look like Arc Desk")
 
 # ---------------------------------------------------------------- MSVC runtime
 # 0xc0000142 (STATUS_DLL_INIT_FAILED) is what a frozen PySide6 app says on a machine

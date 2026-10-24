@@ -47,7 +47,7 @@ The job does, in order:
 
 | step | what it proves |
 |---|---|
-| `python tests/run_all.py` | all **71 tests** pass — a failing test stops the build |
+| `python tests/run_all.py` | all **72 tests** pass — a failing test stops the build |
 | `packaging\build_all.bat` | both executables + the installer are produced |
 | `ArcDesk.exe --version` / `--doctor` | the **frozen** program actually starts and checks itself |
 | SHA-256 of the installer | the file you download can be verified |

@@ -172,6 +172,126 @@ check("no PowerShell policy change, no PATH edit, no registry write",
       all(bad not in text.lower() for bad in ("setx ", "set-executionpolicy",
                                               "reg add", "net user")), True)
 
+print("\n7b) the diagnostic can actually run (cmd is a language with no compiler)")
+import batlint  # noqa: E402
+
+diag_problems = batlint.lint(diag, read_only=True)
+check("ArcDeskDiag.bat passes the batch linter", diag_problems, [])
+check("…and the other batch files still do",
+      [p for p in (ROOT).rglob("*.bat")
+       if not any(x in p.parts for x in (".venv", "dist")) and batlint.lint(p)], [])
+# The linter has to be able to fail, or it is decoration: feed it the exact mistakes
+# cmd punishes silently.
+with tempfile.TemporaryDirectory() as tmp:
+    broken = Path(tmp) / "broken.bat"
+    broken.write_text(
+        "@echo off\n"
+        "if exist x (\n"
+        "  echo   a parenthesis ( like this breaks the block\n"     # fatal
+        "  goto :nowhere\n"                                          # stops silently
+        ")\n"
+        "setx PATH something\n",                                     # must not be here
+        encoding="utf-8")
+    found = batlint.lint(broken, read_only=True)
+    text_found = " ".join(found)
+    check("the linter catches a parenthesis in a block", "bare parenthesis" in text_found,
+          True)
+    check("…a goto with no label", ":nowhere" in text_found, True)
+    check("…and a write in a read-only tool", "setx" in text_found, True)
+    clean = Path(tmp) / "clean.bat"
+    clean.write_text("@echo off\necho (fine at the top level)\n"
+                     "if exist x (\n  echo ^(escaped^) is fine too\n)\nexit /b 0\n",
+                     encoding="utf-8")
+    check("an honest file passes", batlint.lint(clean, read_only=True), [])
+check("the report is written where a person will look (the Desktop)",
+      "%USERPROFILE%\\Desktop" in text, True)
+check("…and also copied next to the .bat",
+      'copy /y "%REPORT%"' in text, True)
+check("…and the path is printed at the end", "echo  Report:" in text, True)
+check("it warns about running from inside the zip, where the report would vanish",
+      "inside the .zip" in text.lower(), True)
+check("…and says it in the window, not only in a REM nobody reads",
+      "echo  If you double-clicked this" in text, True)
+check("every goto has a label (cmd stops silently otherwise)",
+      not batlint.lint(diag, read_only=True), True)
+
+print("\n7c) the shortcut cannot lie about what it launches")
+repair = ROOT / "ArcDeskRepair.bat"
+starter = ROOT / "ArcDeskStart.bat"
+check("ArcDeskRepair.bat exists", repair.is_file(), True)
+check("ArcDeskStart.bat exists", starter.is_file(), True)
+rt = repair.read_text(encoding="utf-8")
+st = starter.read_text(encoding="utf-8")
+check("the repair finds every copy, not one hard-coded path",
+      rt.count("call :try_exe") >= 6, True)
+check("…including the per-user install folder",
+      "%LOCALAPPDATA%\\Programs\\ArcDesk" in rt, True)
+check("it actually starts each copy and waits before judging", "timeout /t 8" in rt, True)
+check("it names the Store-alias cause", "WindowsApps" in rt, True)
+check("it names the missing VC++ runtime",
+      "vcruntime140.dll" in rt and "Microsoft Visual C++ Redistributable" in rt, True)
+check("it names the copied-exe-without-_internal cause", "_internal" in rt, True)
+check("it rebuilds the shortcut with a real target and icon",
+      "$s.IconLocation" in rt and "$s.WorkingDirectory" in rt, True)
+check("…and asks before changing the user's Desktop", "choice /c YN" in rt, True)
+check("both pass the batch linter",
+      [batlint.lint(repair, read_only=False), batlint.lint(starter, read_only=False)], [[], []])
+check("the visible starter keeps the console open so errors are readable",
+      "pause" in st, True)
+check("…and runs the app with --show", "--show" in st, True)
+check("…and handles a source copy through .venv", ".venv\\Scripts\\python.exe" in st, True)
+
+inst = (ROOT / "install_shortcut.bat").read_text(encoding="utf-8")
+check("install_shortcut sets a proper icon", "IconLocation" in inst, True)
+check("…and a working directory", "WorkingDirectory" in inst, True)
+check("…and falls back to the visible starter instead of a silent .py shortcut",
+      "ArcDeskStart.bat" in inst, True)
+check("…and never creates a shortcut to a .py/.pyw",
+      all(".pyw'" not in line and ".py'" not in line for line in inst.splitlines()), True)
+
+print("\n7d) the GitHub workflow cannot go green while shipping a dead exe")
+wf = ROOT / ".github" / "workflows" / "build-windows.yml"
+check("the workflow file exists", wf.is_file(), True)
+w = wf.read_text(encoding="utf-8")
+blocks = [b for b in w.split("\n      - ") if b.strip()]
+by_name = {}
+for block in blocks:
+    head = block.splitlines()[0]
+    by_name[head[:60]] = block
+
+
+def block_with(*needles: str) -> str:
+    for head, body in by_name.items():
+        if all(n in head for n in needles):
+            return body
+    return ""
+
+
+build_step = block_with("build both executables")
+check("there is a step that builds from the spec", bool(build_step), True)
+check("…and it is NOT allowed to fail quietly",
+      "continue-on-error" in build_step, False)
+check("there is no silent 'fallback build' STEP any more (it shipped a dead exe)",
+      [head for head in by_name if "fallback" in head.lower()], [])
+check("the machine is judged before PyInstaller runs",
+      0 < w.find("preflight_win.py") < w.find("-m PyInstaller"), True)
+check("the output is checked for the exe, the voice exe and _internal",
+      all(k in w for k in ("ArcDeskVoice.exe is missing", "_internal is missing")), True)
+check("the icon is checked (its absence is what the user saw on the desktop)",
+      "arc_icon.ico" in w, True)
+check("the built exe is actually STARTED on the runner",
+      "Start-Process" in w and "--doctor" in w, True)
+check("…and its log is read, so a silent crash fails the build",
+      "arcdesk.log" in w and "Traceback" in w, True)
+check("…and that log is uploaded either way", "arcdesk-run-log" in w, True)
+check("the installer is required, not 'best effort'",
+      "throw \"ISCC" in w or "no installer can be built" in w, True)
+check("the test suite is still not in the pipeline (tests must not block a build)",
+      "run_all.py" not in w, True)
+check("the only optional step left is the voice libraries",
+      [line.strip() for line in w.splitlines()
+       if line.strip().startswith("continue-on-error")], ["continue-on-error: true"])
+
 print("\n8) the guide matches the dialogs people actually get")
 guide = (ROOT / "TROUBLESHOOT.md").read_text(encoding="utf-8")
 for phrase in ("AppInstallerPythonRedirector", "0xc0000142", "Visual C++ Redistributable",

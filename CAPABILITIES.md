@@ -697,6 +697,13 @@ pananum."* Two voices, two questions — and until now only one of them had a bu
   (Mark of the Web) and offers to unblock it, whether `python` is the **Store alias**,
   whether the MSVC runtime is present, what is already installed, and the App Execution
   Alias state. Writes ArcDeskDiag.txt. It asks before changing anything.
+- **`tools/batlint.py`** — `cmd.exe` has no compiler, so a wrong `.bat` prints
+  "was unexpected at this time" and carries on. It catches the three silent killers: a
+  bare parenthesis in an `echo` **inside a block** (cmd ends the block there), a
+  `goto :label` with no label (the script just stops), and — for a diagnostic — any
+  `setx`/`reg add`/`set-executionpolicy` in a file that promises to change nothing.
+  `tests/test_windows_build.py` feeds it deliberately broken files, so the linter has to
+  be able to fail or it is decoration.
 - **`TROUBLESHOOT.md`** — every dialog with its cause and its clicks, starting with the
   route that needs no installer at all: extract `ArcDesk-portable.zip`, double-click
   `ArcDesk.exe`.
@@ -707,7 +714,25 @@ pananum."* Two voices, two questions — and until now only one of them had a bu
   spec wiring both the runtime and the hook, both build scripts running the preflight
   **before** PyInstaller, the diagnostic's checks and its "ask first" behaviour, and the
   guide naming the no-installer route first.
-- **71 tests.**
+- **the green build that shipped a dead exe** (GitHub Actions run #14): every step
+  reported success; the installer it produced put a shortcut with **PyInstaller's
+  default icon** on the desktop and never opened. The spec step had lasted **2 seconds**
+  — a real build takes ~110 — because `packaging/arcdesk.spec` used `sys.path.insert(...)`
+  and PyInstaller's spec namespace provides `os` and the build classes but **not `sys`**,
+  so it raised `NameError` immediately. `continue-on-error: true` kept the job green, and
+  a "fallback build, if the spec was unhappy" then produced a plain `--windowed` exe: no
+  `--icon`, no data files, no `ArcDeskVoice.exe`. The installer packed that.
+  Fixed in three places, so the same class of bug cannot reach a user again:
+  (1) the spec imports `sys` and says why; (2) the workflow has **no** silent fallback —
+  the spec build, an output-completeness check (exe + voice exe + `_internal` + icon +
+  pages), and a real start test (`ArcDesk.exe --doctor` on the runner, then read
+  `arcdesk.log`) must all pass before anything is zipped, and the log is uploaded either
+  way; (3) **`tests/test_spec_exec.py`** executes the spec inside PyInstaller's *real*
+  namespace — copied from its own source and asserted against it — with the build classes
+  stubbed, so a `NameError` is a red test instead of a 2-second green step. It also checks
+  what the spec asked for: two exes, `console=False`, onedir, an icon that exists, the
+  MSVC runtime, the runtime hook, and the data files a frozen app cannot get otherwise.
+- **72 tests.**
 - **the workflow was simplified** to install → build → zip → upload. A blocking test step
   had cost four builds; the installer is now always produced, with a portable zip as the
   fallback that cannot fail.

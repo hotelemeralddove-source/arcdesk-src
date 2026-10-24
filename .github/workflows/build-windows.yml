@@ -1,13 +1,34 @@
 # ============================================================================
-#  Arc Desk -> a Windows .exe, built by GitHub, in about 10 minutes.
+#  Arc Desk -> a Windows .exe, built by GitHub.
 #
-#  Deliberately stupid on purpose. Five earlier versions of this file tried to
-#  run the test suite, the packaging pre-flight, a smoke test and a checksum
-#  before producing anything — so ONE failure anywhere meant no exe at all,
-#  which is why a five-minute build felt like a week of debugging.
+#  WHAT THIS FILE GETS RIGHT THAT THE PREVIOUS ONE DID NOT
+#  -------------------------------------------------------
+#  Run #14 ("installer wont start") was GREEN, and the exe it produced installed,
+#  put a desktop shortcut with the WRONG ICON on the desktop, and never opened.
 #
-#  Now: install -> build -> zip -> (installer, best effort) -> upload.
-#  The zip is produced even if everything else complains.
+#  Why: the spec step finished in 2 SECONDS (a real build takes ~110) because
+#  packaging/arcdesk.spec raised `NameError: name 'sys' is not defined` — PyInstaller's
+#  spec namespace provides `os` and the build classes, not `sys`. The step had
+#  `continue-on-error: true`, so the job stayed green; then "fallback build, if the spec
+#  was unhappy" quietly built a plain `--windowed` exe: no --icon (PyInstaller's default
+#  icon — exactly the yellow-and-blue box on the desktop), no data files, no
+#  ArcDeskVoice.exe. The installer packed that, and the user got a shortcut that does
+#  nothing.
+#
+#  The lesson is not "add more steps". It is: **a green tick must mean the artefact
+#  works.** So now:
+#
+#    1. the libraries install strictly (a missing one is a red build, not a surprise)
+#    2. the build machine is judged first (tools/preflight_win.py, ~5 s)
+#    3. the spec build either works or the build FAILS — no silent fallback
+#    4. the output is checked for the things a working app needs (exe, voice exe,
+#       _internal, icon, pages) before anything is zipped
+#    5. the built exe is actually STARTED on the runner (`--doctor`) and its log is
+#       read. This is the only step that proves the frozen app runs at all
+#    6. only then: zip, installer, upload — plus always upload the log
+#
+#  Nothing here runs the 71-test suite: the user asked for a pipeline that cannot be
+#  blocked by a test. The five checks above are about the artefact, not about style.
 # ============================================================================
 name: build
 
@@ -27,68 +48,146 @@ jobs:
         with:
           python-version: "3.13"
 
-      - name: install the app's libraries
+      # ---------------------------------------------------------------- 1. deps
+      - name: 1. the app's libraries (strict - a missing one fails here, not later)
+        shell: pwsh
         run: |
           python -m pip install --upgrade pip
-          python -m pip install PySide6-Essentials psutil Pillow numpy pypdf python-docx openpyxl python-pptx mutagen "pyinstaller>=6"
+          # preferences: the Windows runner has ffmpeg, node and the VC++ runtime already
+          python -m pip install -r requirements.txt
+          python -m pip install "pyinstaller>=6"
+          python -c "import PySide6, psutil, PIL, numpy; print('libraries ok')"
 
-      - name: voice libraries (optional - never blocks the build)
+      - name: 1b. voice libraries (optional - the app says so in Setup if missing)
         continue-on-error: true
         shell: pwsh
         run: |
-          # one at a time on purpose: a single missing wheel used to sink the whole
-          # command, and then "hey jarvis" was silent in the installed app with no clue
-          # why (the setup card said "no wake-word engine is installed").
           foreach ($pkg in @("sounddevice", "vosk", "sherpa-onnx")) {
             python -m pip install $pkg
             if ($LASTEXITCODE -ne 0) { "NOTE: $pkg did not install - continuing" }
           }
           python -c "import importlib.util as u; print('bundled ears:', {m: bool(u.find_spec(m)) for m in ('sounddevice','vosk','openwakeword','sherpa_onnx')})"
 
-      - name: build the two executables
-        continue-on-error: true
+      # ------------------------------------------------------- 2. judge the machine
+      - name: 2. judge the build machine (Store Python, MSVC runtime, icon, disk)
+        run: python tools\preflight_win.py
+
+      # ------------------------------------------------------------------ 3. build
+      # No continue-on-error. If this step cannot produce the app, everything after it
+      # would package a lie.
+      - name: 3. build both executables from the spec
         run: python -m PyInstaller --noconfirm --clean --distpath dist --workpath work packaging/arcdesk.spec
 
-      - name: fallback build, if the spec was unhappy
+      # -------------------------------------------------------- 4. is it complete?
+      - name: 4. verify the output is a working app, not a folder of files
+        shell: pwsh
+        run: |
+          $problems = @()
+          if (-not (Test-Path dist\ArcDesk\ArcDesk.exe))       { $problems += "ArcDesk.exe is missing" }
+          if (-not (Test-Path dist\ArcDesk\ArcDeskVoice.exe))  { $problems += "ArcDeskVoice.exe is missing - the wake word would be dead" }
+          if (-not (Test-Path dist\ArcDesk\_internal))         { $problems += "_internal is missing - the exe cannot start without it" }
+          if (-not (Test-Path dist\ArcDesk\_internal\arcdesk\TOOLS_PAGE.html)) {
+            $problems += "app data files are missing from _internal\arcdesk"
+          }
+          if (-not (Test-Path dist\ArcDesk\_internal\arcdesk\arc_icon.png)) {
+            "..   notice: no arc_icon.png in the bundle"
+          }
+          # the icon the exe carries: without shots\arc_icon.ico PyInstaller silently
+          # substitutes its own, which is what the desktop shortcut showed the user.
+          if (-not (Test-Path shots\arc_icon.ico)) { $problems += "shots\arc_icon.ico is missing - the exe would carry PyInstaller's icon" }
+
+          Get-ChildItem dist\ArcDesk -Filter *.exe | ForEach-Object { "   exe: {0}  {1:N1} MB" -f $_.Name, ($_.Length / 1MB) }
+          "   _internal: {0:N0} files" -f (Get-ChildItem dist\ArcDesk\_internal -Recurse -File).Count
+
+          if ($problems.Count -gt 0) {
+            $problems | ForEach-Object { "::error::$_" }
+            throw "the build is incomplete: " + ($problems -join "; ")
+          }
+          "the output is complete."
+
+      # ----------------------------------------------------- 5. does it actually run?
+      - name: 5. start the built exe on this runner and read its log
+        shell: pwsh
+        run: |
+          # This is the step that would have caught run #14. A frozen windowed app that
+          # dies at startup says nothing, so we ask it to do a real job (--doctor) and
+          # then look for the log it writes while working.
+          $home_ = Join-Path $env:RUNNER_TEMP "arctest"
+          New-Item -ItemType Directory -Force -Path $home_ | Out-Null
+          $env:ARCDESK_HOME = $home_
+          $log = Join-Path $home_ "ArcDesk\logs\arcdesk.log"
+
+          $proc = Start-Process -FilePath "dist\ArcDesk\ArcDesk.exe" -ArgumentList "--doctor" -PassThru
+          $deadline = (Get-Date).AddSeconds(120)
+          while ((Get-Date) -lt $deadline) {
+            if (Test-Path $log) {
+              $text = Get-Content $log -Raw -ErrorAction SilentlyContinue
+              if ($text -match "doctor|ArcDesk start") { break }
+            }
+            if ($proc.HasExited) { break }
+            Start-Sleep -Milliseconds 500
+          }
+          Start-Sleep -Seconds 2          # let the last lines land
+          if (-not $proc.HasExited) { Stop-Process -Id $proc.Id -Force -ErrorAction SilentlyContinue }
+
+          if (-not (Test-Path $log)) {
+            throw "the built exe wrote no log at all - it never got as far as start-up"
+          }
+          "----- arcdesk.log -----"
+          Get-Content $log -Tail 40
+          "-----------------------"
+          $text = Get-Content $log -Raw
+          if ($text -match "uncaught|Traceback") {
+            throw "the exe started and then crashed - see the traceback above"
+          }
+          if ($text -notmatch "doctor|checks") {
+            throw "the log has no sign of --doctor running, so the frozen app did not start"
+          }
+          "PROOF: the packaged exe starts and runs Python code on Windows."
+
+      - name: 5b. keep the log whatever happened
         if: always()
-        shell: pwsh
-        run: |
-          if (Test-Path dist\ArcDesk\ArcDesk.exe) { "the spec build worked"; exit 0 }
-          "spec build produced nothing - trying a plain build"
-          python -m PyInstaller --noconfirm --clean --windowed --name ArcDesk `
-            --collect-submodules arcdesk --distpath dist --workpath work2 run.py
+        uses: actions/upload-artifact@v4
+        with:
+          name: arcdesk-run-log
+          path: ${{ runner.temp }}/arctest/ArcDesk/logs/arcdesk.log
+          if-no-files-found: warn
 
-      - name: zip the app folder (this step always works)
+      # ------------------------------------------------------------------ 6. package
+      - name: 6. portable zip
         shell: pwsh
         run: |
-          if (-not (Test-Path dist\ArcDesk\ArcDesk.exe)) { throw "no ArcDesk.exe was produced" }
           Compress-Archive -Path dist\ArcDesk\* -DestinationPath dist\ArcDesk-portable.zip -Force
-          "portable zip: {0:N1} MB" -f ((Get-Item dist\ArcDesk-portable.zip).Length / 1MB)
+          "portable zip: {0:N1} MB - unzip anywhere, double-click ArcDesk.exe" -f ((Get-Item dist\ArcDesk-portable.zip).Length / 1MB)
 
-      - name: one-file installer (best effort)
-        continue-on-error: true
+      - name: 7. one-file installer
         shell: pwsh
         run: |
+          # Required now, not "best effort": an installer is the thing the user downloads,
+          # so a missing installer is a failed release, not a footnote.
           choco install innosetup -y --no-progress
           $iscc = "C:\Program Files (x86)\Inno Setup 6\ISCC.exe"
           if (-not (Test-Path $iscc)) { $iscc = "C:\Program Files\Inno Setup 6\ISCC.exe" }
+          if (-not (Test-Path $iscc)) { throw "Inno Setup did not install, so no installer can be built" }
           & $iscc /Qp packaging\arcdesk.iss
+          if ($LASTEXITCODE -ne 0) { throw "ISCC failed with exit code $LASTEXITCODE" }
+          if (-not (Test-Path dist\ArcDeskSetup.exe)) { throw "ISCC ran but produced no installer" }
+          "installer: {0:N1} MB" -f ((Get-Item dist\ArcDeskSetup.exe).Length / 1MB)
 
-      - name: what got built
+      # ------------------------------------------------------------------ 8. report
+      - name: 8. what got built (says it in the run summary)
         if: always()
         shell: pwsh
         run: |
-          $md = @("## Result", "")
+          $md = @("## Arc Desk build", "")
           if (Test-Path dist\ArcDeskSetup.exe) {
-            $md += "**ArcDeskSetup.exe** built - {0:N1} MB. Double-click it to install." -f ((Get-Item dist\ArcDeskSetup.exe).Length / 1MB)
-          } else {
-            $md += "**No installer** (Inno Setup step failed) - use ArcDesk-portable.zip instead:"
-            $md += "unzip it anywhere and double-click ArcDesk.exe. No install needed."
-          }
+            $md += ("**ArcDeskSetup.exe** - {0:N1} MB. Download it from the Artifacts box, double-click, install." -f ((Get-Item dist\ArcDeskSetup.exe).Length / 1MB))
+          } else { $md += "**No installer** - the build failed before packaging. Read the red step." }
           if (Test-Path dist\ArcDesk-portable.zip) {
-            $md += ""
-            $md += "Portable zip: {0:N1} MB (always produced)." -f ((Get-Item dist\ArcDesk-portable.zip).Length / 1MB)
+            $md += ("**ArcDesk-portable.zip** - {0:N1} MB. Unzip anywhere, double-click ArcDesk.exe (no install, no Python)." -f ((Get-Item dist\ArcDesk-portable.zip).Length / 1MB))
           }
+          $md += ""
+          $md += "If the desktop shortcut opens nothing, run **ArcDeskStart.bat** inside the app folder - it keeps a console open so the error is readable."
           $md | Out-File -FilePath $env:GITHUB_STEP_SUMMARY -Encoding utf8 -Append
 
       - uses: actions/upload-artifact@v4

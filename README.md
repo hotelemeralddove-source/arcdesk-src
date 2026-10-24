@@ -431,7 +431,7 @@ python tools\capability.py --all
 check.bat                 :: or: python tests\run_all.py
 ```
 
-71 tests, ~85 seconds, no key, no model, no internet, no microphone and no display needed.
+72 tests, ~88 seconds, no key, no model, no internet, no microphone and no display needed.
 They cover the agent loop, the wake pipeline, magic mode, MCP, backend detection, the cost
 guard, the app lifecycle (open/close), the package catalogue, doc-to-code consistency, and
 the crash log / single instance / doctor plumbing.
