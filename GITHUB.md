@@ -43,7 +43,7 @@ Legend: ⭐ = the one to pick if you have no opinion · ★ = Arc Desk drives it
 | **LM Studio** ★ | *(closed source)* | freeware (closed source) | Polished GUI with a local OpenAI server on :1234. NOT open source. Listed only so detection is honest: many people already run it. Free to use, no account needed for local mode. |
 | **exo** | `exo-explore/exo` | Apache-2.0 | Runs one model across several machines on your desk, :52415. Two old laptops together beat one new one. Only worth it if you already own the hardware. |
 | **llama-cpp-python server** | `abetlen/llama-cpp-python` | MIT | llama.cpp with Python bindings and a built-in OpenAI server, :8000. Use this when you want the engine inside your own Python script instead of a separate service. |
-| **node-llama-cpp** | `withcatai/node-llama-cpp` | MIT | The same engine for JavaScript, with automatic GPU offload. Relevant only for the Electron-style side projects around ARC. |
+| **node-llama-cpp** | `withcatai/node-llama-cpp` | MIT | The same engine for JavaScript, with automatic GPU offload. Relevant only for the Electron-style side projects around JARVIS. |
 | **TensorRT-LLM** | `NVIDIA/TensorRT-LLM` | Apache-2.0 | NVIDIA's fastest inference, compiled per GPU model. Highest speed on NVIDIA hardware, and the most setup pain. Needs a build step that is measured in hours, not minutes. |
 | **LMDeploy** | `InternLM/lmdeploy` | Apache-2.0 | Efficient serving with strong quantisation support, :23333. Good middle ground: nearly vLLM speed with easier Windows install. |
 | **Hugging Face Transformers** | `huggingface/transformers` | Apache-2.0 | Loads almost any open model into plain Python. The library every other project wraps. Slowest of the group because it is general, but the widest model coverage. |
@@ -63,7 +63,7 @@ Legend: ⭐ = the one to pick if you have no opinion · ★ = Arc Desk drives it
 | **faster-whisper** | `SYSTRAN/faster-whisper` | MIT | Whisper re-implemented on CTranslate2, several times faster. Best accuracy-per-second on CPU if you can spare ~1 GB. |
 | **OpenAI Whisper** | `openai/whisper` | MIT | The reference model and trainer (weights are MIT). The model is open. The *API* at openai.com is not — that stays blocked. |
 | **Wyoming** | `rhasspy/wyoming` | Apache-2.0 | A tiny JSON protocol so STT, TTS and wake word become swappable services. Interesting if you ever want ears and mouth in separate processes; Arc Desk keeps them in-process today to save RAM. |
-| **pyannote.audio** | `pyannote/pyannote-audio` | MIT | Speaker diarisation — who spoke when. Useful for meeting recordings, not for a single user talking to ARC. |
+| **pyannote.audio** | `pyannote/pyannote-audio` | MIT | Speaker diarisation — who spoke when. Useful for meeting recordings, not for a single user talking to JARVIS. |
 | **NVIDIA NeMo** | `NVIDIA/NeMo` | Apache-2.0 | Research-grade speech and language toolkit. Heavy (PyTorch first) but the accuracy ceiling is high. |
 | **Mozilla DeepSpeech** | `mozilla/DeepSpeech` | MPL-2.0 | The project that proved offline STT was practical. Archived upstream since 2021. Listed because old tutorials still point at it — use Vosk or sherpa-onnx instead. |
 
@@ -77,7 +77,7 @@ Legend: ⭐ = the one to pick if you have no opinion · ★ = Arc Desk drives it
 | **Kokoro** | `hexgrad/kokoro` | Apache-2.0 | 82M-parameter TTS that sounds close to paid cloud voices. Best free voice quality in 2026 for the size. ~350 MB of runtime. |
 | **eSpeak NG** | `espeak-ng/espeak-ng` | GPL-3.0 | Robotic but indestructible formant synthesiser. Fallback of last resort: 2 MB, works on anything, sounds like 1985. |
 | **Coqui TTS (XTTS)** | `coqui-ai/TTS` | MPL-2.0 | Voice cloning and many voices. Unmaintained upstream since 2024. Great results, abandoned project — use Kokoro unless you specifically need cloning. |
-| **OpenVoice** | `myshell-ai/OpenVoice` | MIT | Clones a tone of voice from a few seconds of audio. Could give ARC a deeper, more 'manly' voice than a stock TTS. Clone only your own voice — not a stranger's. |
+| **OpenVoice** | `myshell-ai/OpenVoice` | MIT | Clones a tone of voice from a few seconds of audio. Could give JARVIS a deeper, more 'manly' voice than a stock TTS. Clone only your own voice — not a stranger's. |
 | **RVC voice conversion** | `RVC-Project/Retrieval-based-Voice-Conversion-WebUI` | MIT | Realtime voice-to-voice conversion on CPU or GPU. Post-processes any TTS into a chosen timbre. Same rule: your voice, your consent. |
 
 
@@ -99,11 +99,11 @@ Legend: ⭐ = the one to pick if you have no opinion · ★ = Arc Desk drives it
 | **Tesseract OCR** ⭐ ★ | `tesseract-ocr/tesseract` | Apache-2.0 | Classic OCR engine; reads text out of any window or photo. Arc Desk already reads the screen with it. Small, offline, 100+ languages. |
 | **PaddleOCR** | `PaddlePaddle/PaddleOCR` | Apache-2.0 | Much better accuracy than Tesseract on real-world photos. Handles rotated, blurry and mixed-language text far better. Heavier install (~500 MB with Paddle). |
 | **EasyOCR** | `JaidedAI/EasyOCR` | Apache-2.0 | PyTorch OCR in 80+ languages with a two-line API. Easiest to start with; pulls PyTorch in. |
-| **MarkItDown** ⭐ | `microsoft/markitdown` | MIT | Turns PDF, Word, Excel, PPT and images into clean Markdown. Would let ARC read any document with one function instead of the per-format readers it has now. Strong candidate. |
+| **MarkItDown** ⭐ | `microsoft/markitdown` | MIT | Turns PDF, Word, Excel, PPT and images into clean Markdown. Would let JARVIS read any document with one function instead of the per-format readers it has now. Strong candidate. |
 | **Docling** | `docling-project/docling` | MIT | Layout-aware document parsing: tables, columns, reading order. Best free extractor for messy PDFs with tables. Slower than a text reader, so only for files that need it. |
 | **OmniParser** | `microsoft/OmniParser` | MIT | Turns a screenshot into a labelled list of clickable UI elements. This is how 'click the Save button' becomes reliable without a vision API. The most interesting row in this group. |
 | **CLIP** | `openai/CLIP` | MIT | Matches images to text — search your photos by description. Enables 'find the photo with the red bike' over a local folder. Weights are MIT. |
-| **Ultralytics YOLO** | `ultralytics/ultralytics` | AGPL-3.0 | Real-time object detection. AGPL: fine to run, awkward if you ever ship a modified version. Not needed for ARC's current jobs. |
+| **Ultralytics YOLO** | `ultralytics/ultralytics` | AGPL-3.0 | Real-time object detection. AGPL: fine to run, awkward if you ever ship a modified version. Not needed for JARVIS's current jobs. |
 | **Qwen2.5-VL** | `QwenLM/Qwen2.5-VL` | Apache-2.0 | An open vision model that can describe and reason about a screenshot. A real 'look at my screen and explain it' brain, fully offline, if you have ~4 GB spare. |
 
 
@@ -112,7 +112,7 @@ Legend: ⭐ = the one to pick if you have no opinion · ★ = Arc Desk drives it
 
 | Project | GitHub | Licence | What it does for ARC |
 |---|---|---|---|
-| **Chroma** ⭐ | `chroma-core/chroma` | Apache-2.0 | Embedded vector database — the easy default for local RAG. One folder, no server, no account. What ARC would use first for 'ask my documents'. |
+| **Chroma** ⭐ | `chroma-core/chroma` | Apache-2.0 | Embedded vector database — the easy default for local RAG. One folder, no server, no account. What JARVIS would use first for 'ask my documents'. |
 | **Qdrant** | `qdrant/qdrant` | Apache-2.0 | Fast vector search server in Rust, :6333. Better than Chroma past roughly a million chunks; overkill below it. |
 | **FAISS** | `facebookresearch/faiss` | MIT | The original similarity-search library. Fastest raw index, no frills: you store the text yourself. |
 | **LanceDB** | `lancedb/lancedb` | Apache-2.0 | Columnar vector store that also keeps your metadata. Good when search results need filters like date or file type. |
@@ -125,7 +125,7 @@ Legend: ⭐ = the one to pick if you have no opinion · ★ = Arc Desk drives it
 
 | Project | GitHub | Licence | What it does for ARC |
 |---|---|---|---|
-| **AutoHotkey** | `AutoHotkey/AutoHotkey` | GPL-2.0 | Windows hotkeys and macros in a scripting language. ARC already sends keystrokes itself; AHK is for macros you want to run with ARC closed. |
+| **AutoHotkey** | `AutoHotkey/AutoHotkey` | GPL-2.0 | Windows hotkeys and macros in a scripting language. JARVIS already sends keystrokes itself; AHK is for macros you want to run with JARVIS closed. |
 | **AutoKey** | `autokey/autokey` | GPL-3.0 | The same idea on Linux and X11 desktops. Kept for the small number of users running Arc Desk on Linux. |
 | **Prefect** | `PrefectHQ/prefect` | Apache-2.0 | Schedules and retries multi-step jobs. If a nightly 'clean my downloads, back up notes' job grows past a few steps, this is the free scheduler for it. |
 | **Browser Use** | `browser-use/browser-use` | MIT | Lets a model drive a real browser step by step. Similar ground to Playwright MCP, but in-process. Needs a capable local model to be useful. |
@@ -139,12 +139,12 @@ Legend: ⭐ = the one to pick if you have no opinion · ★ = Arc Desk drives it
 |---|---|---|---|
 | **MCP reference servers** ★ | `modelcontextprotocol/servers` | MIT | Filesystem, Fetch, Time, Memory, Git, Sequential Thinking. Arc Desk already speaks MCP: paste any command in Settings and its tools appear as mcp__<server>__<tool>. |
 | **MCP Python SDK** | `modelcontextprotocol/python-sdk` | MIT | The protocol implementation Arc Desk's own MCP client follows. Our client is ~300 lines of stdlib JSON-RPC, written from the spec, so the app has no runtime dependency on this. Listed for reference. |
-| **Playwright MCP** | `microsoft/playwright-mcp` | Apache-2.0 | Drives a real browser: click, type, screenshot, read the DOM. Gives ARC hands on the web without any paid API. |
+| **Playwright MCP** | `microsoft/playwright-mcp` | Apache-2.0 | Drives a real browser: click, type, screenshot, read the DOM. Gives JARVIS hands on the web without any paid API. |
 | **GitHub MCP Server** | `github/github-mcp-server` | MIT | Issues, pull requests, code search, Actions. Needs a GitHub token — free, but an account. Off by default. |
 | **Serena** | `oraios/serena` | MIT | MCP server that gives a model real code intelligence: symbols, refs. The best free way to make a small model useful on a real codebase. |
-| **Playwright for Python** | `microsoft/playwright-python` | Apache-2.0 | Scripted browser control with no model needed. Deterministic: ARC records the steps once, replays them forever. |
+| **Playwright for Python** | `microsoft/playwright-python` | Apache-2.0 | Scripted browser control with no model needed. Deterministic: JARVIS records the steps once, replays them forever. |
 | **Puppeteer** | `puppeteer/puppeteer` | Apache-2.0 | The JavaScript equivalent, driving headless Chrome. Only if the browser automation lives on the JS side. |
-| **llm** | `simonw/llm` | Apache-2.0 | A command line for models, with plugins for local servers. Handy for testing what a local model can actually do before wiring it into ARC. |
+| **llm** | `simonw/llm` | Apache-2.0 | A command line for models, with plugins for local servers. Handy for testing what a local model can actually do before wiring it into JARVIS. |
 | **awesome-mcp-servers** | `punkpeye/awesome-mcp-servers` | MIT | A hand-maintained index of MCP servers you can paste into Settings. Read it before writing a new integration — someone usually has one. |
 
 
@@ -156,10 +156,10 @@ Legend: ⭐ = the one to pick if you have no opinion · ★ = Arc Desk drives it
 | **ONNX Runtime** | `microsoft/onnxruntime` | MIT | Runs the small speech models without PyTorch. The reason sherpa / openWakeWord start in milliseconds. |
 | **python-sounddevice** ★ | `spatialaudio/python-sounddevice` | MIT | Microphone capture through PortAudio. What the wake daemon records with. One import, no visible window. |
 | **Silero VAD** | `snakers4/silero-vad` | MIT | Voice activity detection, 1 MB ONNX. Stops the app listening to silence, so the CPU idles instead of working. |
-| **pywinauto** | `pywinauto/pywinauto` | BSD-3-Clause | Windows UI automation for apps with no CLI. Optional reach: lets ARC press buttons in old Windows programs. Not bundled — it touches the desktop, and the guard treats that carefully. |
+| **pywinauto** | `pywinauto/pywinauto` | BSD-3-Clause | Windows UI automation for apps with no CLI. Optional reach: lets JARVIS press buttons in old Windows programs. Not bundled — it touches the desktop, and the guard treats that carefully. |
 | **PyInstaller** ★ | `pyinstaller/pyinstaller` | GPL-2.0 with bootloader exception | Turns run.py into ArcDesk.exe. The exception is what makes shipping a closed or open app from GPL build tooling legal. |
 | **psutil** ★ | `giampaolo/psutil` | BSD-3-Clause | CPU, memory, disk, battery and process stats on every OS. Every real number on the hologram comes from here. If it is missing, Arc Desk says so instead of inventing figures. |
-| **pywin32** ★ | `mhammond/pywin32` | PSF-2.0 | Windows APIs: volume, brightness, clipboard, window handles. How ARC mutes, dims and locks without any external tool. |
+| **pywin32** ★ | `mhammond/pywin32` | PSF-2.0 | Windows APIs: volume, brightness, clipboard, window handles. How JARVIS mutes, dims and locks without any external tool. |
 | **mss** | `BoboTiG/python-mss` | MIT | Very fast cross-platform screenshots. About 10x faster than a naive grab — relevant if screen reading ever needs to run per frame. |
 | **OpenCV (Python)** | `opencv/opencv-python` | Apache-2.0 | Image resizing, template matching, thresholding. Would replace the hand-written numpy work in the vision module with tested code. |
 | **Pillow** ★ | `python-pillow/Pillow` | MIT-CMU | Image load, save and convert for every format. Behind every screenshot resize and OCR pre-process Arc Desk does. |
@@ -177,7 +177,7 @@ Legend: ⭐ = the one to pick if you have no opinion · ★ = Arc Desk drives it
 |---|---|---|---|
 | **Nuitka** | `Nuitka/Nuitka` | Apache-2.0 | Compiles Python to C — smaller, faster start than freezing. Alternative to PyInstaller if antivirus keeps flagging the PyInstaller bundle. Both are free. |
 | **Inno Setup** | `jrsoftware/issrc` | Inno Setup licence (free, source available) | Makes a normal Windows installer and uninstaller. The polite way to ship Arc Desk: a real uninstaller in Add/Remove Programs, which is what uninstall.bat apologises for not having. |
-| **uv** | `astral-sh/uv` | MIT / Apache-2.0 | Installs Python and dependencies in seconds. Makes the 'install ARC from source' path one command instead of five. |
+| **uv** | `astral-sh/uv` | MIT / Apache-2.0 | Installs Python and dependencies in seconds. Makes the 'install JARVIS from source' path one command instead of five. |
 
 
 ---

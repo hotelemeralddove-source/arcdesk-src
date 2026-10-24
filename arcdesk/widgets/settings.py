@@ -51,13 +51,14 @@ class SettingsDialog(QDialog):
         self.cfg = cfg
         self.theme = theme
         self.setWindowTitle("Arc Desk · settings")
-        self.setMinimumSize(640, 560)
+        # No hard-coded start size: the tab body scrolls and the window is fitted to the
+        # display at the end of _build() (see widgets/fit.py).
 
         lay = QVBoxLayout(self)
         lay.setContentsMargins(18, 16, 18, 14)
         lay.setSpacing(12)
 
-        head = QLabel("ARC DESK · SETTINGS")
+        head = QLabel("JARVIS DESK · SETTINGS")
         f = head.font()
         f.setPixelSize(10)
         f.setWeight(f.Weight.Bold)
@@ -66,16 +67,21 @@ class SettingsDialog(QDialog):
         lay.addWidget(head)
 
         self.tabs = QTabWidget()
-        self.tabs.addTab(self._voice_tab(), "Voice")
-        self.tabs.addTab(self._system_tab(), "System")
-        self.tabs.addTab(self._extras_tab(), "Charms & weather")
-        tools_tab = self._tools_tab()
-        scroll = QScrollArea()
-        scroll.setWidgetResizable(True)
-        scroll.setFrameShape(QScrollArea.Shape.NoFrame)
-        scroll.setHorizontalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOff)
-        scroll.setWidget(tools_tab)
-        self.tabs.addTab(scroll, "Local AI & tools")
+
+        def _scrolled(tab: QWidget) -> QScrollArea:
+            """A tab that scrolls. The Voice tab is the tallest and its lower half used to
+            fall off the bottom of a laptop screen — with the Save button under it."""
+            area = QScrollArea()
+            area.setWidgetResizable(True)
+            area.setFrameShape(QScrollArea.Shape.NoFrame)
+            area.setHorizontalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAsNeeded)
+            area.setWidget(tab)
+            return area
+
+        self.tabs.addTab(_scrolled(self._voice_tab()), "Voice")
+        self.tabs.addTab(_scrolled(self._system_tab()), "System")
+        self.tabs.addTab(_scrolled(self._extras_tab()), "Charms & weather")
+        self.tabs.addTab(_scrolled(self._tools_tab()), "Local AI & tools")
         lay.addWidget(self.tabs, 1)
 
         row = QHBoxLayout()
@@ -91,6 +97,8 @@ class SettingsDialog(QDialog):
 
         self._load()
         self._style()
+        from .fit import make_fit
+        make_fit(self, preferred=(820, 700), keep_last=1, minimum=(430, 320))
 
     # ------------------------------------------------------------ voice tab
     def _voice_tab(self) -> QWidget:
@@ -109,7 +117,7 @@ class SettingsDialog(QDialog):
                                    "Ctrl+Alt+Q quits at any time.")
         self.mode_icon.toggled.connect(self._mode_changed)
         self.mode_voice.toggled.connect(self._mode_changed)
-        form.addRow("How ARC opens", self.mode_icon)
+        form.addRow("How JARVIS opens", self.mode_icon)
         form.addRow("", self.mode_voice)
         self.mode_hint = _note("")
         form.addRow("", self.mode_hint)
@@ -150,7 +158,7 @@ class SettingsDialog(QDialog):
         form.addRow(self.reply_note)
 
         self.open_my_voice = QPushButton("Voices — who commands, which voice replies…")
-        self.open_my_voice.setToolTip("Two lists: the voices allowed to command ARC, and "
+        self.open_my_voice.setToolTip("Two lists: the voices allowed to command JARVIS, and "
                                       "the voice it answers in (yours, or any clip you have).")
         self.open_my_voice.clicked.connect(self.open_my_voice_dialog)
         myvoice_row = QHBoxLayout()
@@ -214,14 +222,14 @@ class SettingsDialog(QDialog):
         form.addRow(self.companion_note)
 
         form.addRow(_heading("WHO MAY COMMAND IT"))
-        self.lock_on = QCheckBox("Only my voice may command ARC on this computer")
+        self.lock_on = QCheckBox("Only my voice may command JARVIS on this computer")
         self.lock_on.setToolTip("Record three short takes once; after that, another "
                                 "person's voice is ignored. Not a security control — a "
                                 "recording of you still passes.")
         form.addRow(self.lock_on)
         self.lock_status = _note("")
         form.addRow(self.lock_status)
-        teach = QPushButton("Teach ARC my voice…")
+        teach = QPushButton("Teach JARVIS my voice…")
         teach.clicked.connect(self.open_voice_lock)
         row2 = QHBoxLayout()
         row2.addWidget(teach)
@@ -245,14 +253,14 @@ class SettingsDialog(QDialog):
 
     def _refresh_mode_hint(self) -> None:
         voice = self.mode_voice.isChecked()
-        self.mode_hint.setText("Microphone stays open and ARC starts with Windows — that is "
+        self.mode_hint.setText("Microphone stays open and JARVIS starts with Windows — that is "
                                "what makes \"hey jarvis\" work."
                                if voice else
                                "Nothing listens, nothing starts by itself. Double-click the "
                                "shortcut when you need me; every feature is there.")
 
     def open_my_voice_dialog(self) -> None:
-        """Both lists: who may command ARC, and which voice it answers in."""
+        """Both lists: who may command JARVIS, and which voice it answers in."""
         from .voicelib_dialog import VoiceLibraryDialog
         dlg = VoiceLibraryDialog(self.cfg, self.theme, parent=self)
         dlg.exec()
@@ -305,7 +313,7 @@ class SettingsDialog(QDialog):
 
     @staticmethod
     def reply_voice_line(cfg: dict | None = None) -> str:
-        """One sentence naming the voice ARC will answer in, right now.
+        """One sentence naming the voice JARVIS will answer in, right now.
 
         Before this existed, the only way to find out was to make it speak and recognise
         the voice — which is how someone ends up asking "why is the reply voice a
@@ -401,7 +409,7 @@ class SettingsDialog(QDialog):
         self.effects.addItem("Full glow", 1.0)
         self.effects.addItem("Reduced — lighter on old GPUs", 0.55)
         self.effects.addItem("Off — fastest, flat colours", 0.0)
-        self.effects.setToolTip("How much glow and animation the ARC world draws. "
+        self.effects.setToolTip("How much glow and animation the JARVIS world draws. "
                                 "Off is the fastest; charms hide themselves at Off.")
         form.addRow("Visual effects", self.effects)
 
@@ -421,7 +429,7 @@ class SettingsDialog(QDialog):
         diag.setContentsMargins(0, 0, 0, 0)
         form.addRow("Diagnostics", holder)
 
-        self.magic_on = QCheckBox('"Hey JARVIS" enters magic mode (fullscreen ARC + wallpaper)')
+        self.magic_on = QCheckBox('"Hey JARVIS" enters magic mode (fullscreen JARVIS + wallpaper)')
         form.addRow(self.magic_on)
 
         self.magic_exit = QLineEdit()
@@ -571,7 +579,7 @@ class SettingsDialog(QDialog):
         self.backend_combo.addItem("Auto-detect (recommended)", "auto")
         for b in __import__("arcdesk.ai.backends", fromlist=["BACKENDS"]).BACKENDS:
             self.backend_combo.addItem(f"{b.label}  ({b.repo})", b.key)
-        self.backend_combo.addItem("ARC Lite (offline, no model)", "lite")
+        self.backend_combo.addItem("JARVIS Lite (offline, no model)", "lite")
         self.backend_combo.setSizeAdjustPolicy(
             QComboBox.SizeAdjustPolicy.AdjustToMinimumContentsLengthWithIcon)
         self.backend_combo.setMinimumContentsLength(10)
@@ -634,8 +642,7 @@ class SettingsDialog(QDialog):
 
         self.mcp_status = _note("")
         lay.addWidget(self.mcp_status)
-        w.setMinimumHeight(560)
-        w.setMinimumWidth(0)
+        w.setMinimumWidth(0)      # no minimum height: the tab scrolls instead
         return w
 
     def _cost_changed(self) -> None:
@@ -648,7 +655,7 @@ class SettingsDialog(QDialog):
                         "(OpenAI, or any cloud endpoint).\n\n"
                         "Nothing is charged automatically and no card is stored here — "
                         "but requests to those providers cost money on your account.\n\n"
-                        "Free options stay available: ARC Lite and the local engines.")
+                        "Free options stay available: JARVIS Lite and the local engines.")
             box.setStandardButtons(QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No)
             box.setDefaultButton(QMessageBox.StandardButton.No)
             if box.exec() != QMessageBox.StandardButton.Yes:
@@ -660,9 +667,9 @@ class SettingsDialog(QDialog):
     def _refresh_cost_note(self) -> None:
         cls_ = self.cost_combo.currentData()
         text = {
-            "local": "ARC Lite and all 9 local engines. No key, no account, no rate limit, "
+            "local": "JARVIS Lite and all 9 local engines. No key, no account, no rate limit, "
                      "₹0 forever. Cloud providers are refused before a request is sent.",
-            "free": "ARC Lite + local engines + cloud free tiers (Groq, Gemini). Still ₹0 — "
+            "free": "JARVIS Lite + local engines + cloud free tiers (Groq, Gemini). Still ₹0 — "
                     "they only need a key and have rate limits. Paid providers are blocked.",
             "paid": "⚠ Paid providers are allowed. Nothing is charged by Arc Desk itself; "
                     "your provider account is billed for the tokens you use.",
@@ -961,7 +968,7 @@ class SettingsDialog(QDialog):
             if not took:
                 QMessageBox.information(
                     self, "Startup entry not created",
-                    "The system refused to add (or remove) the startup entry, so ARC "
+                    "The system refused to add (or remove) the startup entry, so JARVIS "
                     "will not start by itself. Everything else saved. On Windows this "
                     "is one per-user value; on other systems it may need a desktop entry.")
         self.cfg["autostart"] = autostart.is_enabled()

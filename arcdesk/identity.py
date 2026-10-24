@@ -1,40 +1,46 @@
-"""Who ARC is when it speaks — one name, one place.
+"""What the assistant calls itself — one setting, used everywhere it speaks.
 
-The user's words: *"athu pesum pothu 'I am ARC' nu soluthu; 'I am JARVIS' nu sonna
-semaya irukkum."* So the spoken identity is **JARVIS** by default, while the application
-is still Arc Desk on the disk and in the title bar (that is what people installed).
+The user asked for this twice, in their own words:
 
-Nothing here invents a name at runtime: the default lives in `config.DEFAULTS` under
-`"ai" -> "name"`, so anybody can change it in Settings → Brain and it will be used
-everywhere — the persona prompt, the first-run voice test, the Lite self-introduction and
-the "who are you" answer. One function, no copies.
+    "athu pesum pothu 'I am ARC' nu soluthu; 'I am JARVIS' nu sonna semaya irukkum"
+    "nan kooda ARC nu sola vendam, JARVIS nu solanum"
+
+So the name lives here and nowhere else. `DEFAULT_NAME` is what a fresh install says;
+`cfg["ai"]["name"]` overrides it (Settings → Voice → "what it calls itself"), and an empty
+or whitespace-only value falls back rather than producing a blank introduction.
+
+The *product* is still Arc Desk — "ARC DESK" in the header, "Arc Desk" in the installer.
+One is the machine you installed; the other is who answers when you talk to it.
 """
 from __future__ import annotations
 
+#: What a fresh installation says. Also the fallback for a blank setting.
 DEFAULT_NAME = "JARVIS"
+
+#: Words that are the product, not the persona. `relabel()` leaves these alone.
+_BRAND = ("ARC DESK", "Arc Desk", "ARC Lite")
 
 
 def name(cfg: dict | None = None) -> str:
-    """The name ARC answers to and introduces itself with."""
+    """The name this installation answers to. Never empty."""
     try:
-        got = str((cfg or {}).get("ai", {}).get("name") or "").strip()
-    except Exception:
-        got = ""
-    return got or DEFAULT_NAME
-
-
-def prompt_line(cfg: dict | None = None) -> str:
-    """The one sentence a model needs to get the name right.
-
-    Small local models copy whatever they are told about themselves, so this is stated
-    as identity, not as a preference: "you are JARVIS".
-    """
-    who = name(cfg)
-    return (f"Your name is {who}. When you introduce yourself, say \"I am {who}\". "
-            f"The application you live inside is called Arc Desk — that is the window, "
-            f"not you.")
+        chosen = ((cfg or {}).get("ai") or {}).get("name") or ""
+    except AttributeError:
+        chosen = ""
+    chosen = str(chosen).strip()
+    return chosen or DEFAULT_NAME
 
 
 def intro(cfg: dict | None = None) -> str:
-    """A spoken self-introduction that a person would actually want to hear."""
+    """The one sentence it introduces itself with, spoken or shown on a card."""
     return f"I am {name(cfg)}, and this is my voice on your machine."
+
+
+def relabel(text: str) -> str:
+    """Return `text` with the old persona name replaced, product names untouched."""
+    out = text
+    for brand in _BRAND:
+        out = out.replace(brand, "\x00" + brand)     # park the brand names out of the way
+    out = out.replace("I am ARC", f"I am {DEFAULT_NAME}")
+    out = out.replace("ASK ARC", f"ASK {DEFAULT_NAME}")
+    return out.replace("\x00", "")

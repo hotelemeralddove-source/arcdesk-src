@@ -25,6 +25,9 @@ class _Worker(QThread):
         self.job = job
         self.key = key
         self.cancel = threading.Event()
+        from .fit import make_fit
+        make_fit(self, preferred=(800, 660), keep_last=1,
+                 minimum=(420, 300))
 
     def run(self) -> None:  # pragma: no cover - real downloads, exercised by the app
         say = self.line.emit
@@ -53,7 +56,8 @@ class BrainDialog(QDialog):
         self.cfg = cfg
         self.theme = theme or {}
         self.setWindowTitle("Give it a brain — local, free, no account")
-        self.setMinimumSize(760, 600)
+        # sized by widgets/fit.py instead of a hard-coded minimum that can be
+        # bigger than the screen
         self._worker: _Worker | None = None
         from .style import dialog_style
         if self.theme:
@@ -65,7 +69,7 @@ class BrainDialog(QDialog):
         root.addWidget(title)
         intro = QLabel(
             "Lite answers instantly without any model, but it only understands commands. "
-            "A brain lets ARC talk. It runs on this laptop, needs no account and costs "
+            "A brain lets JARVIS talk. It runs on this laptop, needs no account and costs "
             "nothing. One download, kept on disk, reversible.")
         intro.setObjectName("dim")
         intro.setWordWrap(True)

@@ -128,6 +128,9 @@ def main(argv: list[str]) -> int:
     shown = "the window is shown" in text and not hidden
     state = "hidden" if hidden else ("visible" if shown else "unknown")
     handles = [ln for ln in text.splitlines() if "BOOT · handles:" in ln]
+    boot_line = [ln for ln in text.splitlines() if "from the double-click" in ln]
+    if boot_line:
+        print("  the app measured its own start:", boot_line[-1].split("NOTE")[-1].strip())
     tray = "yes" if handles and "tray=yes" in handles[-1] else "no"
     check("the log records what happened to the window", state != "unknown")
     if "--expect" in argv:

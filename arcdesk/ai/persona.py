@@ -1,7 +1,9 @@
-"""ARC's personality + the rules it is given about the machine it lives on.
+"""JARVIS's personality + the rules it is given about the machine it lives on.
 
-Deliberately NOT a Marvel character. ARC is our own assistant: dry, competent,
-short sentences, never pretends to have done something it did not do.
+Deliberately NOT a Marvel character. JARVIS is our own assistant: dry, competent, short
+sentences, never pretends to have done something it did not do. The name is not typed
+here — `{name}` is filled from `arcdesk.identity`, one setting, so the persona and the
+spoken lines can never disagree.
 """
 from __future__ import annotations
 

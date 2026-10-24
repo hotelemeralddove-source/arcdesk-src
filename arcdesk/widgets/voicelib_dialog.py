@@ -5,14 +5,14 @@
 
 The user asked for exactly this: command in my voice, reply in the voice I choose — and no
 robotic TTS. The honesty is on the screen: a reply voice needs a clone engine installed
-(IndicF5 / XTTS), and until one is, ARC says "system voice" rather than pretending.
+(IndicF5 / XTTS), and until one is, JARVIS says "system voice" rather than pretending.
 """
 from __future__ import annotations
 
 from PySide6.QtCore import Qt
 from PySide6.QtWidgets import (
     QComboBox, QDialog, QFileDialog, QHBoxLayout, QLabel, QLineEdit, QListWidget,
-    QListWidgetItem, QMessageBox, QPlainTextEdit, QPushButton, QVBoxLayout,
+    QListWidgetItem, QMessageBox, QPlainTextEdit, QPushButton, QVBoxLayout, QWidget,
 )
 
 from .. import voicelib
@@ -34,7 +34,8 @@ class VoiceLibraryDialog(QDialog):
         self.cfg = cfg
         self.theme = theme
         self.setWindowTitle("Arc Desk · voices")
-        self.setMinimumSize(640, 660)
+        # 660 was taller than the usable height of a 768-pixel laptop at 125% scaling, and
+        # the Done button — the only way out — sat below the bottom edge. See make_fit().
         from .style import dialog_style
         if theme:
             self.setStyleSheet(dialog_style(theme))
@@ -50,7 +51,7 @@ class VoiceLibraryDialog(QDialog):
         title.setFont(f)
         lay.addWidget(title)
         lay.addWidget(QLabel(
-            "Two different things. Who may COMMAND ARC, and which voice it ANSWERS in."))
+            "Two different things. Who may COMMAND JARVIS, and which voice it ANSWERS in."))
 
         # ------------------------------------------------------------ command
         lay.addWidget(_heading("1 · WHO MAY COMMAND IT"))
@@ -73,10 +74,16 @@ class VoiceLibraryDialog(QDialog):
         lay.addWidget(self.cmd_note)
 
         # -------------------------------------------------------------- reply
-        lay.addWidget(_heading("2 · THE VOICE ARC ANSWERS IN"))
+        lay.addWidget(_heading("2 · THE VOICE JARVIS ANSWERS IN"))
         self.reply_list = QListWidget()
         self.reply_list.setMaximumHeight(110)
         lay.addWidget(self.reply_list)
+        hint = QLabel("Use a 10–20 second clip of one person talking, no music. "
+                      "4 seconds is the minimum; a longer clip sounds much closer.")
+        hint.setWordWrap(True)
+        hint.setObjectName("dim")
+        lay.addWidget(hint)
+
         row2 = QHBoxLayout()
         self.reply_name = QLineEdit()
         self.reply_name.setPlaceholderText("name for this voice (e.g. rajini, me)")
@@ -110,6 +117,24 @@ class VoiceLibraryDialog(QDialog):
             self.lang.addItem(label, code)
         lay.addWidget(self.lang)
 
+        # ---- the one-click fix for "the upload was refused" ---------------
+        # A refusal that only says "run python tools/voice_setup.py" is a dead end for
+        # anyone who installed the app with an installer and has no terminal. The model
+        # is 30 MB; the app can fetch it, visibly, from here.
+        self.model_row = QWidget()
+        model_lay = QHBoxLayout(self.model_row)
+        model_lay.setContentsMargins(0, 0, 0, 0)
+        self.model_btn = QPushButton("Download the voice-lock model (30 MB)…")
+        self.model_btn.setToolTip("Needed before a COMMAND voice can be enrolled. "
+                                  "One file, downloaded once, stays on this PC.")
+        self.model_btn.clicked.connect(self._get_model)
+        model_lay.addWidget(self.model_btn)
+        self.model_note = QLabel("")
+        self.model_note.setObjectName("dim")
+        self.model_note.setWordWrap(True)
+        model_lay.addWidget(self.model_note, 1)
+        lay.addWidget(self.model_row)
+
         from .style import read_only_log
         self.out = read_only_log(QPlainTextEdit())
         self.out.setFixedHeight(130)
@@ -129,6 +154,12 @@ class VoiceLibraryDialog(QDialog):
 
         self._reload()
 
+        # Body scrolls, the engine + Done row stays pinned on screen, and the dialog never
+        # starts bigger than the display. This is what made "Add a voice" look broken:
+        # the button was there, the confirmation was below the screen.
+        from .fit import make_fit
+        make_fit(self, preferred=(760, 700), keep_last=1, minimum=(430, 320))
+
     # ------------------------------------------------------------------ lists
     def _reload(self) -> None:
         self.cmd_list.clear()
@@ -144,10 +175,53 @@ class VoiceLibraryDialog(QDialog):
             item.setData(Qt.ItemDataRole.UserRole, entry.get("id", ""))
             self.reply_list.addItem(item)
         self.cmd_note.setText(
-            ("Nobody is enrolled: any voice may command ARC." if not voicelib.command_voices()
+            ("Nobody is enrolled: any voice may command JARVIS." if not voicelib.command_voices()
              else "Enrolled: " + ", ".join(voicelib.command_voices())
                   + ". The lock must also be ON (the switch on the Voice tab)."))
         self.out.setPlainText(voicelib.describe() + "\n\n" + self._engine_line())
+        self._refresh_model_row()
+
+    def _refresh_model_row(self) -> None:
+        """Show the download button only while the speaker model is actually missing."""
+        try:
+            from .. import voiceid
+            why = str(voiceid.engine().get("why") or "")
+        except Exception:
+            why = ""
+        needs = "speaker" in why.lower() and ("not downloaded" in why.lower()
+                                              or "no speaker-id" in why.lower())
+        self.model_row.setVisible(needs)
+        self.model_note.setText(why if needs else "")
+
+    def _get_model(self) -> None:
+        """Fetch the speaker model in the background, saying what it is doing."""
+        import threading
+
+        self.model_btn.setEnabled(False)
+        self.out.setPlainText("downloading the speaker-embedding model (~30 MB)…")
+
+        def work() -> None:
+            try:
+                from .. import voiceid
+                got = voiceid.download_model()
+            except Exception as exc:                             # noqa: BLE001
+                got = {"ok": False, "message": f"{type(exc).__name__}: {exc}"}
+
+            def done() -> None:
+                self.model_btn.setEnabled(True)
+                self.out.setPlainText(str(got.get("message", "")))
+                if not got.get("ok"):
+                    QMessageBox.warning(self, "The model did not download",
+                                        str(got.get("message", "")))
+                self._reload()
+
+            try:
+                from PySide6.QtCore import QTimer
+                QTimer.singleShot(0, done)
+            except Exception:                                    # noqa: BLE001
+                done()
+
+        threading.Thread(target=work, daemon=True, name="voice-model").start()
 
     def _engine_line(self) -> str:
         """One honest sentence about the engine, then the way to get it."""
@@ -165,12 +239,16 @@ class VoiceLibraryDialog(QDialog):
     # -------------------------------------------------------------- commands
     def _add_command(self) -> None:
         path, _ = QFileDialog.getOpenFileName(
-            self, "A recording of the voice allowed to command ARC", "",
+            self, "A recording of the voice allowed to command JARVIS", "",
             "Audio or video (*.wav *.mp3 *.m4a *.mp4 *.mkv *.webm *.ogg *.flac);;All files (*)")
         if not path:
             return
         got = voicelib.add_command(self.cmd_name.text(), path)
         self.out.setPlainText(got.get("message", ""))
+        if not got.get("ok", True):
+            # Louder than the log box: a refusal in a scroll area is easy to miss, and
+            # "I clicked and nothing happened" was the report.
+            QMessageBox.warning(self, "That voice was not added", str(got.get("message")))
         self._reload()
 
     def _del_command(self) -> None:
@@ -183,7 +261,7 @@ class VoiceLibraryDialog(QDialog):
     # ------------------------------------------------------------------ reply
     def _add_reply(self) -> None:
         path, _ = QFileDialog.getOpenFileName(
-            self, "A recording of the voice ARC should answer in", "",
+            self, "A recording of the voice JARVIS should answer in", "",
             "Audio or video (*.wav *.mp3 *.m4a *.mp4 *.mkv *.webm *.ogg *.flac);;All files (*)")
         if not path:
             return
@@ -191,6 +269,7 @@ class VoiceLibraryDialog(QDialog):
                                  self.lang.currentData() or "auto")
         if not got.get("ok"):
             self.out.setPlainText("could not add that voice:\n" + str(got.get("message")))
+            QMessageBox.warning(self, "That voice was not added", str(got.get("message")))
             return
         voicelib.set_reply(got["voice"]["id"])
         self.out.setPlainText(got["message"] + "\n\n" + voicelib.describe())

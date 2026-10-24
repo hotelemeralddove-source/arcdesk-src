@@ -1,4 +1,4 @@
-"""ARC Lite — the zero-setup, zero-RAM, fully offline brain.
+"""JARVIS Lite — the zero-setup, zero-RAM, fully offline brain.
 
 There is no LLM here: it is intent matching over the same tool registry the real
 model uses. Why it exists:
@@ -273,7 +273,7 @@ def respond(text: str) -> tuple[str, list[dict]]:
     # anchored: "run command echo hi" must not be mistaken for a greeting
     if (re.match(r"^(hi|hii|hello|hey|vanakkam|namaskara)\b", low)
             and "jarvis" not in low and len(low) < 30):
-        return ("ARC Lite online. Ask me to open an app, check the system, set a timer, "
+        return ("JARVIS Lite online. Ask me to open an app, check the system, set a timer, "
                 "or switch modes.", [])
     if "who are you" in low or "your name" in low or "nee yaaru" in low:
         return (f"I am {_who()}, the assistant inside Arc Desk. Right now I am running in Lite "

@@ -1,4 +1,4 @@
-"""Who is allowed to wake ARC — one voice, enrolled on this machine.
+"""Who is allowed to wake JARVIS — one voice, enrolled on this machine.
 
 The ask: *"intha laptop-la jarvis enoda voice-la mattum work aaganum; vera laptop-la
 naan install pannina anga vera person-oda voice-la access aaganum."*
@@ -64,8 +64,8 @@ def engine() -> dict:
         if model:
             return {"name": "sherpa-onnx", "model": str(model), "ready": True, "why": ""}
         return {"name": "sherpa-onnx", "model": "", "ready": False,
-                "why": "the speaker-embedding model is not downloaded yet "
-                       "(`python tools/voice_setup.py lock-model`)"}
+                "why": "the speaker-embedding model (30 MB) is not downloaded yet — "
+                       "the Voices window has the one-click download"}
     except Exception:
         pass
     try:
@@ -74,8 +74,8 @@ def engine() -> dict:
     except Exception:
         pass
     return {"name": "", "model": "", "ready": False,
-            "why": "no speaker-id engine installed — run install_voice.bat, which adds "
-                   "sherpa-onnx and its 30 MB speaker model"}
+            "why": "no speaker-id engine installed — the Voices window offers it in one "
+                   "click (sherpa-onnx plus its 30 MB speaker model)"}
 
 
 def available() -> tuple[bool, str]:

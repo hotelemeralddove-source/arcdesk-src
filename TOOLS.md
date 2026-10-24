@@ -77,7 +77,7 @@ Current local time and date.
 
 ### `profile`
 
-What ARC remembers about you: name, editor, city, reply language, volume taste. action=get|set|forget|clear.
+What JARVIS remembers about you: name, editor, city, reply language, volume taste. action=get|set|forget|clear.
 
 | argument | type | required | values |
 |---|---|---|---|
@@ -215,7 +215,7 @@ Press keys in the focused window: enter, ctrl+s, alt+tab, ctrl+shift+t.
 
 ### `action_log`
 
-What ARC has actually done on this machine, most recent last.
+What JARVIS has actually done on this machine, most recent last.
 
 | argument | type | required | values |
 |---|---|---|---|
@@ -227,7 +227,7 @@ The bits that make it feel like a film.
 
 ### `magic`
 
-Enter or leave magic mode (fullscreen ARC + wallpaper swap).
+Enter or leave magic mode (fullscreen JARVIS + wallpaper swap).
 
 | argument | type | required | values |
 |---|---|---|---|
@@ -905,7 +905,7 @@ Where your work lives. Projects with their own folder, notes and progress saved 
 
 ### `facts`
 
-What ARC knows: 75 dated, sourced facts (India, world, science, tech, money, health, food, myths), plus your own indexed files, plus a real Wikipedia lookup that cites its date. Says 'I do not know' when it does not.
+What JARVIS knows: 75 dated, sourced facts (India, world, science, tech, money, health, food, myths), plus your own indexed files, plus a real Wikipedia lookup that cites its date. Says 'I do not know' when it does not.
 
 | argument | type | required | values |
 |---|---|---|---|

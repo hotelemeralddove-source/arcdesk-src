@@ -6,7 +6,7 @@ Read this once, after installing. Everything in section A is already on your lap
 
 ## A · Already inside the .exe — nothing to do
 
-- **112 Python modules** of the app itself (`arcdesk/**/*.py`), collected by `collect_submodules("arcdesk")` in `packaging/arcdesk.spec`. A hand-written list is how a packaged app imports fine and dies on the one screen you only open once.
+- **114 Python modules** of the app itself (`arcdesk/**/*.py`), collected by `collect_submodules("arcdesk")` in `packaging/arcdesk.spec`. A hand-written list is how a packaged app imports fine and dies on the one screen you only open once.
 - `tools/doctor.py  ✔ shipped as data` — helper scripts the frozen app reads at runtime
 - `tools/clone_speak.py  ✔ shipped as data` — helper scripts the frozen app reads at runtime
 - the interface, themes, icons, and the generated in-app pages (HTML)
@@ -58,7 +58,7 @@ The pattern for all three: **a compiled `.exe` cannot import a package that arri
 
 | question | answer |
 |---|---|
-| does every `arcdesk` module ship? | yes — 112 of 112, collected automatically |
+| does every `arcdesk` module ship? | yes — 114 of 114, collected automatically |
 | does the build install every hard dependency? | yes (`PySide6`, on, a, laptop, pulls, it,, and, the, same, spec, then, produces`) |
 | are the voice libraries attempted separately? | yes — sounddevice, vosk, sherpa-onnx |
 | does the spec collect the wake engine? | yes |

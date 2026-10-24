@@ -33,14 +33,15 @@ class EarsDialog(QDialog):
         super().__init__(parent)
         self.theme = theme or {}
         self.setWindowTitle("Microphone and wake word — what is missing")
-        self.setMinimumSize(680, 520)
+        # sized by widgets/fit.py instead of a hard-coded minimum that can be
+        # bigger than the screen
         self._worker: _Worker | None = None
         from .style import dialog_style
         if self.theme:
             self.setStyleSheet(dialog_style(self.theme))
 
         root = QVBoxLayout(self)
-        title = QLabel("Can ARC hear you?")
+        title = QLabel("Can JARVIS hear you?")
         title.setObjectName("h1")
         root.addWidget(title)
         self.intro = QLabel("")
@@ -125,6 +126,9 @@ class EarsDialog(QDialog):
         w.done.connect(self._finished)
         self._worker = w
         w.start()
+        from .fit import make_fit
+        make_fit(self, preferred=(740, 640), keep_last=1,
+                 minimum=(420, 300))
 
     def _stop(self) -> None:
         if self._worker is not None:

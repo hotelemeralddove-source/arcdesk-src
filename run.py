@@ -30,12 +30,12 @@ def main(argv: list[str] | None = None) -> int:
     ap.add_argument("--screenshot", metavar="PNG", help="save a still frame and exit")
     ap.add_argument("--advance", type=float, default=2.6, help="seconds to fast-forward")
     ap.add_argument("--no-tray", action="store_true")
-    ap.add_argument("--console", action="store_true", help="open the ARC console")
+    ap.add_argument("--console", action="store_true", help="open the JARVIS console")
     ap.add_argument("--download-voice-model", dest="download_voice_model",
                     action="store_true",
                     help="download the speech model (40 MB) and the speaker model (30 MB), "
                          "then exit — the installer offers this")
-    ap.add_argument("--ask", metavar="TEXT", help="send one prompt and print ARC's answer")
+    ap.add_argument("--ask", metavar="TEXT", help="send one prompt and print JARVIS's answer")
     ap.add_argument("--demo-chat", action="store_true", help="seed a sample conversation")
     ap.add_argument("--shadow", action="store_true",
                     help="start hidden: no window, no tray icon (boot with Windows)")
@@ -113,6 +113,23 @@ def main(argv: list[str] | None = None) -> int:
             return 0
 
     app = QApplication([argv[0]] + qt_args)
+
+    # Say something immediately. A cold start on Windows spends a second or two loading
+    # DLLs, and silence during that reads as "it did not open".
+    import time as _time
+    _started = _time.time()
+    splash = None
+    if not (args.shadow or dev_run):
+        try:
+            from arcdesk.widgets.splash import Splash
+            splash = Splash("JARVIS")
+            splash.show()
+            app.processEvents()
+            # hard ceiling: a card that outlives a failed start would sit on the desktop
+            from PySide6.QtCore import QTimer as _QTimer
+            _QTimer.singleShot(8000, splash.close)
+        except Exception:                                        # noqa: BLE001
+            splash = None
     app.setApplicationName("Arc Desk")
     app.setApplicationDisplayName("Arc Desk")
     app.setOrganizationName("ArcDesk")
@@ -200,6 +217,14 @@ def main(argv: list[str] | None = None) -> int:
     else:
         win.show()
         logs.note("BOOT · the window is shown")
+        if splash is not None:                 # the real window is up; the card can go
+            try:
+                splash.close()
+            except Exception:                                    # noqa: BLE001
+                pass
+            splash = None
+        logs.note("BOOT · %.1f s from the double-click to the window"
+                  % (_time.time() - _started))
     logs.note("BOOT · handles: tray=%s, hotkeys=%s, stealth=%s"
               % ("yes" if tray is not None else "no",
                  "yes" if cfg.get("shadow", {}).get("hotkeys", True) else "no",
@@ -317,12 +342,12 @@ def main(argv: list[str] | None = None) -> int:
                 app.processEvents()
             if answer.get("error"):
                 print("[error]", answer["error"])
-            print("[ARC]", answer.get("text", "(no answer)"))
+            print("[JARVIS]", answer.get("text", "(no answer)"))
             return 0 if answer.get("text") else 2
 
     if args.awaken_shot:
         from arcdesk.widgets.awakening import Awakening
-        aw = Awakening(win.theme, "ARC // ONLINE")
+        aw = Awakening(win.theme, "JARVIS // ONLINE")
         aw.show()
         for _ in range(4):
             app.processEvents()

@@ -357,7 +357,7 @@ check("the window class exists and is a Qt widget",
 win_src = (ROOT / "arcdesk" / "widgets" / "window.py").read_text(encoding="utf-8")
 for needle, why in (("CLICK CORE", "the core tells you what it does"),
                     ("FOCUS", "the mode row"), ("WAKE OFF", "the honest mic state"),
-                    ("ASK ARC", "the one obvious way to type"),
+                    ("ASK JARVIS", "the one obvious way to type — and it uses the name the user asked for"),
                     ("READY", "the status line")):
     check(f"the HUD still says {needle}", needle in win_src, True)
 

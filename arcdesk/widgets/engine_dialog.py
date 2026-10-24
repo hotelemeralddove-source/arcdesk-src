@@ -25,6 +25,9 @@ class _Worker(QThread):
         super().__init__(parent)
         self.engine = engine
         self.cancel = threading.Event()
+        from .fit import make_fit
+        make_fit(self, preferred=(760, 680), keep_last=1,
+                 minimum=(420, 300))
 
     def run(self) -> None:  # pragma: no cover - real process, exercised by the app
         result = engines.install(self.engine, on_line=self.line.emit, cancel=self.cancel)
@@ -41,7 +44,8 @@ class EngineDialog(QDialog):
         super().__init__(parent)
         self.theme = theme or {}
         self.setWindowTitle("Voice engines — what makes a clone sound real")
-        self.setMinimumSize(720, 560)
+        # sized by widgets/fit.py instead of a hard-coded minimum that can be
+        # bigger than the screen
         self._worker: _Worker | None = None
         from .style import dialog_style
         if self.theme:
@@ -52,7 +56,7 @@ class EngineDialog(QDialog):
         title.setObjectName("h1")
         root.addWidget(title)
         intro = QLabel(
-            "Without one, ARC answers in the system voice — and says so. With one, it "
+            "Without one, JARVIS answers in the system voice — and says so. With one, it "
             "speaks in the voice you picked, in that person's own sound.\n"
             "Downloaded once, kept on this computer. Nothing is installed behind your back.")
         intro.setObjectName("dim")
@@ -185,5 +189,5 @@ class EngineDialog(QDialog):
         else:
             self.verdict.setText(
                 f"Not installed ({result.get('why') or 'failed'}). The last line above says "
-                "why. ARC keeps saying “system voice” until this works — it will not fake it.")
+                "why. JARVIS keeps saying “system voice” until this works — it will not fake it.")
         self.reload()

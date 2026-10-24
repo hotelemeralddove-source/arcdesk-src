@@ -1,4 +1,4 @@
-"""The ARC Control Center window.
+"""The JARVIS Control Center window.
 
 Lean choices baked in:
   * Frameless, self-painted background -> no native chrome, no theme fights.
@@ -187,10 +187,16 @@ class MainWindow(QWidget):
         self.setWindowFlags(Qt.WindowType.FramelessWindowHint | Qt.WindowType.Window)
         self.setAttribute(Qt.WidgetAttribute.WA_TranslucentBackground, True)
         self.setWindowTitle("Arc Desk")
-        self.setMinimumSize(840, 570)
+        # A floor, not a size. 840x570 was wider than the usable width of a 1366-pixel
+        # laptop at 125% scaling, so the window hung off the right edge and could not be
+        # made smaller. clamp_to_screen() lowers this further if the display is smaller.
+        self.setMinimumSize(560, 420)
 
         self._build()
         self._restore_geometry()
+        from .fit import add_size_grip, clamp_to_screen
+        clamp_to_screen(self)
+        self._grip = add_size_grip(self)
 
         # Esc must work no matter which child has the keyboard focus — that was the
         # complaint ("esc kodutha close aaga matiku"). A widget-level keyPressEvent is
@@ -283,7 +289,7 @@ class MainWindow(QWidget):
         # ---- header ----------------------------------------------------
         header = QHBoxLayout()
         header.setSpacing(12)
-        brand = _label("ARC DESK", "brand", 15, 5.0, QFont.Weight.Bold)
+        brand = _label("JARVIS DESK", "brand", 15, 5.0, QFont.Weight.Bold)
         brand.setAttribute(Qt.WidgetAttribute.WA_TransparentForMouseEvents, True)
         sub = _label("YOUR DESKTOP · YOUR UNIVERSE", "sub", 9, 2.6)
         sub.setAttribute(Qt.WidgetAttribute.WA_TransparentForMouseEvents, True)
@@ -302,11 +308,11 @@ class MainWindow(QWidget):
         self.wake_pill.clicked.connect(self.toggle_wake)
         header.addWidget(self.wake_pill)
 
-        self.btn_ask = QPushButton("ASK ARC ▸")
+        self.btn_ask = QPushButton("ASK JARVIS ▸")
         self.btn_ask.setObjectName("askBtn")
         self.btn_ask.setFixedHeight(26)
         self.btn_ask.setCursor(Qt.CursorShape.PointingHandCursor)
-        self.btn_ask.setToolTip("Open the ARC console (Ctrl+J)")
+        self.btn_ask.setToolTip("Open the JARVIS console (Ctrl+J)")
         self.btn_ask.clicked.connect(self.toggle_console)
         header.addWidget(self.btn_ask)
 
@@ -322,9 +328,25 @@ class MainWindow(QWidget):
         self.btn_min.setObjectName("ghost")
         self.btn_min.setFixedSize(28, 26)
         self.btn_min.setCursor(Qt.CursorShape.PointingHandCursor)
-        self.btn_min.setToolTip("Hide to tray")
-        self.btn_min.clicked.connect(self.hide)
+        self.btn_min.setToolTip("Minimize to the taskbar (the reactor keeps running)")
+        self.btn_min.clicked.connect(self.showMinimized)
         header.addWidget(self.btn_min)
+
+        self.btn_max = QPushButton("▢")
+        self.btn_max.setObjectName("ghost")
+        self.btn_max.setFixedSize(28, 26)
+        self.btn_max.setCursor(Qt.CursorShape.PointingHandCursor)
+        self.btn_max.setToolTip("Expand to fill the screen / back to a window")
+        self.btn_max.clicked.connect(self.toggle_maximized)
+        header.addWidget(self.btn_max)
+
+        self.btn_tray = QPushButton("⌄")
+        self.btn_tray.setObjectName("ghost")
+        self.btn_tray.setFixedSize(28, 26)
+        self.btn_tray.setCursor(Qt.CursorShape.PointingHandCursor)
+        self.btn_tray.setToolTip("Hide to the tray (Esc does the same)")
+        self.btn_tray.clicked.connect(self.hide)
+        header.addWidget(self.btn_tray)
         root.addLayout(header)
 
         # ---- body ------------------------------------------------------
@@ -576,10 +598,10 @@ class MainWindow(QWidget):
         st = ticker().stats()
         perf = f"{st['fps']} FPS · {st['frame_ms']:.1f} ms/frame"
         if voice:
-            self.lbl_foot.setText(f"ARC CORE {s.self_mb:.0f} MB   ·   VOICE {voice:.0f} MB"
+            self.lbl_foot.setText(f"JARVIS CORE {s.self_mb:.0f} MB   ·   VOICE {voice:.0f} MB"
                                   f"   ·   {perf}")
         else:
-            self.lbl_foot.setText(f"ARC CORE {s.self_mb:.0f} MB   ·   {perf}")
+            self.lbl_foot.setText(f"JARVIS CORE {s.self_mb:.0f} MB   ·   {perf}")
         self._refresh_status_card()
         # the honest answer to "is it doing anything?" — on the window, always
         from .. import activity as _activity
@@ -637,7 +659,7 @@ class MainWindow(QWidget):
         want = (not self._console_open) if force is None else bool(force)
         self._console_open = want
         self.stack.setCurrentIndex(1 if want else 0)
-        self.btn_ask.setText("◂ DASHBOARD" if want else "ASK ARC ▸")
+        self.btn_ask.setText("◂ DASHBOARD" if want else "ASK JARVIS ▸")
         if want:
             QTimer.singleShot(30, self.console.focus_input)
         else:
@@ -740,7 +762,7 @@ class MainWindow(QWidget):
             pass
 
     def _on_barge(self) -> None:
-        """The user started talking over ARC — stop instantly and listen."""
+        """The user started talking over JARVIS — stop instantly and listen."""
         self.voice.stop()
         self._speech_open = False
         self.console.add_note("interrupted — listening")
@@ -778,7 +800,7 @@ class MainWindow(QWidget):
             self.console.add_note(f"VOICE · could not speak ({type(exc).__name__})")
 
     def _cinematic_open(self) -> None:
-        """The beat when ARC opens, then the hello — once per opening.
+        """The beat when JARVIS opens, then the hello — once per opening.
 
         Two doors lead here: the wake word, and pressing the magic button. They can
         land within a second of each other, and the guard is what keeps that one cue
@@ -943,8 +965,8 @@ class MainWindow(QWidget):
 
     def _on_confirm(self, name: str, args: str) -> None:
         box = QMessageBox(self)
-        box.setWindowTitle("ARC needs permission")
-        box.setText(f"ARC wants to run:  {name}\n\nArguments: {args}\n\nAllow?")
+        box.setWindowTitle("JARVIS needs permission")
+        box.setText(f"JARVIS wants to run:  {name}\n\nArguments: {args}\n\nAllow?")
         box.setIcon(QMessageBox.Icon.Warning)
         box.setStandardButtons(QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No)
         box.setDefaultButton(QMessageBox.StandardButton.No)
@@ -1006,7 +1028,7 @@ class MainWindow(QWidget):
 
     # ---------------------------------------------------------- magic mode
     def enter_magic(self) -> None:
-        """Hey JARVIS: fullscreen ARC workspace + wallpaper swap (both reversible)."""
+        """Hey JARVIS: fullscreen JARVIS workspace + wallpaper swap (both reversible)."""
         mcfg = self.cfg.setdefault("magic", {})
         if self.magic_active:
             return
@@ -1355,7 +1377,7 @@ class MainWindow(QWidget):
         QGuiApplication.instance().quit()
 
     # ---------------------------------------------------------- awakening
-    def awaken(self, message: str = "ARC // ONLINE") -> None:
+    def awaken(self, message: str = "JARVIS // ONLINE") -> None:
         """Voice said the word: take the screen over, then land in the app."""
         if self._awakening is not None:
             return
@@ -1385,9 +1407,9 @@ class MainWindow(QWidget):
             self.activateWindow()
             self.toggle_console(True)
         self.companion.set_state(LISTENING)
-        self.lbl_ready.setText("ARC ONLINE · AT YOUR SERVICE")
+        self.lbl_ready.setText("JARVIS ONLINE · AT YOUR SERVICE")
         if self._tray is not None:
-            self.notify("ARC online · listening")
+            self.notify("JARVIS online · listening")
 
     # ------------------------------------------------------ palette glue
     def _palette_reply(self, text: str) -> None:
@@ -1704,6 +1726,20 @@ class MainWindow(QWidget):
         self.console.add_note("window hidden — Ctrl+Alt+J or \"hey jarvis\" brings it back")
         return True
 
+    def toggle_maximized(self) -> None:
+        """One button for "expand" and "back to a window".
+
+        The window is frameless, so Windows gave it no maximise button at all — the only
+        way to enlarge it was to drag (and it could not be dragged). This is the button
+        the report asked for: "enakku minimize pana, expand pana".
+        """
+        if self.isMaximized():
+            self.showNormal()
+            self.btn_max.setToolTip("Expand to fill the screen")
+        else:
+            self.showMaximized()
+            self.btn_max.setToolTip("Back to a window")
+
     def keyPressEvent(self, event) -> None:  # noqa: N802
         k = event.key()
         mod = event.modifiers()
@@ -1765,7 +1801,7 @@ class MainWindow(QWidget):
     # -------------------------------------------------------------- misc
     def _quick_menu(self) -> QMenu:
         m = QMenu(self)
-        m.addAction("Ask ARC  (Ctrl+J)").triggered.connect(lambda: self.toggle_console(True))
+        m.addAction("Ask JARVIS  (Ctrl+J)").triggered.connect(lambda: self.toggle_console(True))
         m.addAction("Hologram deck").triggered.connect(self.show_holo)
         m.addAction("Settings…").triggered.connect(self.open_settings)
         m.addAction("Assistant brain…").triggered.connect(self.open_ai_setup)
@@ -1806,7 +1842,7 @@ class MainWindow(QWidget):
         m.addSeparator()
         m.addAction("Reset window position").triggered.connect(self._reset_pos)
         m.addAction("Awaken (test transformation)").triggered.connect(self.awaken)
-        mg = m.addAction("Magic mode  (fullscreen ARC + wallpaper)")
+        mg = m.addAction("Magic mode  (fullscreen JARVIS + wallpaper)")
         mg.setCheckable(True)
         mg.setChecked(self.magic_active)
         mg.triggered.connect(lambda _c: self.toggle_magic())

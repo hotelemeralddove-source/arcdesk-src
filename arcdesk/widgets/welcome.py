@@ -72,7 +72,7 @@ class WelcomeDialog(QDialog):
         lay.setContentsMargins(26, 22, 26, 8)
         lay.setSpacing(12)
 
-        kick = QLabel("ARC DESK · SETUP")
+        kick = QLabel("JARVIS DESK · SETUP")
         kick.setObjectName("kicker")
         lay.addWidget(kick)
         title = QLabel("Three things, then I am yours.")
@@ -86,7 +86,7 @@ class WelcomeDialog(QDialog):
         # ---- 1. voice ------------------------------------------------
         lay.addWidget(self._card(
             "1 · CAN YOU HEAR ME?",
-            "Plays one line through the same engine ARC uses for answers. If this is "
+            "Plays one line through the same engine JARVIS uses for answers. If this is "
             "silent, Settings → Voice is where to fix it.",
             [("Say something", self._test_voice)],
         ))
@@ -135,7 +135,7 @@ class WelcomeDialog(QDialog):
         lay.addWidget(self._card(
             "2 · HOW DO YOU WANT TO OPEN ME?",
             "Either way every feature works. Typed commands, the tray and Ctrl+Alt+J "
-            "are always there; the difference is only whether ARC is already running "
+            "are always there; the difference is only whether JARVIS is already running "
             "and listening.",
             widgets=[self.mode_icon, self.mode_voice, self.wake_hint, self.ears_btn],
         ))
@@ -144,7 +144,7 @@ class WelcomeDialog(QDialog):
         found = engines or []
         brain_text = ("Found: " + ", ".join(found) + ". I will use it when it is running.")
         if not found:
-            brain_text = ("No local model detected — that is fine. ARC Lite answers "
+            brain_text = ("No local model detected — that is fine. JARVIS Lite answers "
                           "offline in about a millisecond, and you can add Ollama or "
                           "llama.cpp later in Settings → Brain.")
         self.brain_text = brain_text
@@ -175,7 +175,7 @@ class WelcomeDialog(QDialog):
         self.boot_hint.setVisible(False)
         lay.addWidget(self._card(
             "4 · START WITH YOU?",
-            "Ticked for the voice option, because \"hey jarvis\" can only answer if ARC "
+            "Ticked for the voice option, because \"hey jarvis\" can only answer if JARVIS "
             "is already running. One per-user entry, no admin, removable here or in "
             "Task Manager.",
             widgets=[self.boot_box, self.boot_hint],
@@ -211,11 +211,11 @@ class WelcomeDialog(QDialog):
         self.status.setObjectName("dim")
         row.addWidget(self.status, 1)
         self.skip_btn = QPushButton("Just use Lite")
-        self.skip_btn.setToolTip("Save nothing except “setup is done” — ARC still works "
+        self.skip_btn.setToolTip("Save nothing except “setup is done” — JARVIS still works "
                                  "offline; every feature stays available.")
         self.skip_btn.clicked.connect(lambda: self._finish(False))
         row.addWidget(self.skip_btn)
-        self.go_btn = QPushButton("Start ARC")
+        self.go_btn = QPushButton("Start JARVIS")
         self.go_btn.setObjectName("go")
         self.go_btn.setDefault(True)          # Enter finishes, like every other dialog
         self.go_btn.clicked.connect(lambda: self._finish(True))
