@@ -48,6 +48,23 @@ hiddenimports += [
     "arcdesk.ai.lite", "arcdesk.ai.agent", "arcdesk.ai.voice",
 ]
 
+# The ears. `import vosk` lives inside a function in arc_daemon.py, so static analysis is
+# not enough to guarantee it is collected — and an installed app that cannot import vosk
+# is an app where "hey jarvis" silently does nothing. Collected here when present, and
+# named loudly when not, so the build log answers the question instead of the user.
+import importlib.util as _ilu
+
+for _mod in ("vosk", "sounddevice", "openwakeword", "sherpa_onnx"):
+    try:
+        if _ilu.find_spec(_mod) is not None:
+            hiddenimports += collect_submodules(_mod)
+            print(f"[spec] ears: bundling {_mod}")
+        else:
+            print(f"[spec] ears: {_mod} is NOT installed — that part of the ears will "
+                  f"be missing from this build")
+    except Exception as _exc:                      # noqa: BLE001
+        print(f"[spec] ears: could not collect {_mod} ({_exc})")
+
 datas = []
 for pattern in ("*.json", "*.png", "*.svg", "*.ico", "*.wav", "*.qm", "*.html"):
     datas += [(str(p), "arcdesk") for p in PKG.rglob(pattern)]

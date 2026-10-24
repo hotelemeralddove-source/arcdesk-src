@@ -42,6 +42,24 @@ DEFAULTS = {
 OPEN_MODES = ("icon", "voice")
 
 
+def reveal_window(just_finished_setup: bool, hidden_boot: bool) -> bool:
+    """Should the main window be on screen right now?
+
+    Two ways to get this wrong, and both happened:
+
+    * stealth mode hides the window at boot (that is the promised resting state), so
+      after the setup card was answered the app went invisible and "nothing opened";
+    * the only thing left to click was the ✕, which saved nothing and brought the card
+      back on the next double-click.
+
+    The rule: **answering the setup card means the person is looking at the screen right
+    now**, so show the window once. If they chose the voice mode, "bye jarvis" puts it
+    away again and later launches stay silent. `hidden_boot` is kept in the signature so
+    the caller cannot forget which of the two situations it is in.
+    """
+    return bool(just_finished_setup) or not bool(hidden_boot)
+
+
 def answers_from(cfg: dict) -> dict:
     """What is true right now — so the wizard opens showing reality, not aspirations."""
     wake = bool(cfg.get("wake", {}).get("enabled"))

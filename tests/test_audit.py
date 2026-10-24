@@ -278,7 +278,6 @@ EXPECTED_ON = [
     ("shadow.preserve_windows", "your open windows survive magic mode"),
     ("shadow.relaunch_on_wake", "'BYE JARVIS' can be undone by voice"),
     ("magic.enabled", 'magic mode is available'),
-    ("charms.enabled", "floating charms exist"),
     ("vault.follow_answers", "answers are saved to the vault"),
     ("ai.enabled", "the assistant answers at all"),
     ("ai.voice", "it speaks"),
@@ -296,6 +295,9 @@ for path, why in EXPECTED_ON:
 
 # off by default, on purpose — each one has a stated reason
 EXPECTED_OFF = [
+    # "default ah desktop la floating icons varuthu" — the user's complaint. The setting
+    # still exists and still works; it is simply not switched on for you on day one.
+    ("charms.enabled", "nothing floats on the desktop until you ask"),
     ("wake.enabled", "a microphone nobody asked for is never opened"),
     ("wake.voice_lock", "needs you to enrol first"),
     ("weather.enabled", "no network calls until you ask"),

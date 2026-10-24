@@ -160,6 +160,11 @@ class SettingsDialog(QDialog):
         test = QPushButton("Test wake (no mic)")
         test.clicked.connect(self.wake_test.emit)
         btn_row.addWidget(test)
+        ears = QPushButton("Get the ears ready (mic + wake word)…")
+        ears.setToolTip("Checks the microphone library, the wake engine, the 40 MB speech "
+                        "model and the voice-lock model — and downloads what is missing.")
+        ears.clicked.connect(self.open_ears)
+        btn_row.addWidget(ears)
         install = QPushButton("Get the reply-voice engine…")
         install.setToolTip("IndicF5 (Tamil/Hindi) and XTTS (English) — the models that make "
                            "a cloned voice sound like the person. Installed from here.")
@@ -292,6 +297,11 @@ class SettingsDialog(QDialog):
             return True
         except Exception:
             return False
+
+    def open_ears(self) -> None:
+        from .ears_dialog import EarsDialog
+        EarsDialog(self.theme, parent=self).exec()
+        self._refresh_voice_status()
 
     def open_engines(self) -> None:
         """The neural engine, installed from inside the app — one click, real output."""

@@ -34,7 +34,16 @@ jobs:
 
       - name: voice libraries (optional - never blocks the build)
         continue-on-error: true
-        run: python -m pip install vosk sounddevice sherpa-onnx
+        shell: pwsh
+        run: |
+          # one at a time on purpose: a single missing wheel used to sink the whole
+          # command, and then "hey jarvis" was silent in the installed app with no clue
+          # why (the setup card said "no wake-word engine is installed").
+          foreach ($pkg in @("sounddevice", "vosk", "sherpa-onnx")) {
+            python -m pip install $pkg
+            if ($LASTEXITCODE -ne 0) { "NOTE: $pkg did not install - continuing" }
+          }
+          python -c "import importlib.util as u; print('bundled ears:', {m: bool(u.find_spec(m)) for m in ('sounddevice','vosk','openwakeword','sherpa_onnx')})"
 
       - name: build the two executables
         continue-on-error: true

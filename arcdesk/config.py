@@ -76,8 +76,13 @@ DEFAULTS: dict[str, Any] = {
         "bye_action": "exit",
         "relaunch_on_wake": True, # only used when bye_action = exit
     },
+    # Floating charms (orbs, planets, butterflies, little bots) that draw straight onto
+    # the desktop. They used to be ON by default, and the user's verdict on that was
+    # blunt: "default ah desktop la floating icons varuthu". A first install should look
+    # like nothing at all until asked; Settings -> Look turns them on.
     "charms": {
-        "enabled": True,
+        "enabled": False,
+        "user_choice": False,      # True once a person has actually toggled them
         "items": [
             {"kind": "reactor", "x": 120, "y": 160, "scale": 1.15, "speed": 1.0},
             {"kind": "planet", "x": 1420, "y": 240, "scale": 1.0, "speed": 0.7},
@@ -162,17 +167,37 @@ def _merge(base: dict, over: dict) -> dict:
     return out
 
 
+def _migrate(cfg: dict[str, Any]) -> dict[str, Any]:
+    """One-way fixes for settings files written by an older build.
+
+    Only rules that are true for everybody belong here, and each one records that it
+    ran, so a person who turns the feature back on is never overruled twice.
+
+    Rule 1 (2026-10): charms were ON by default. Anybody whose file says `enabled: true`
+    without `user_choice: true` never chose that — it was the default talking — so it is
+    switched off once and marked. Toggling them in Settings sets `user_choice`, and from
+    then on this rule stays out of the way.
+    """
+    charms = cfg.get("charms")
+    if isinstance(charms, dict):
+        if charms.get("enabled") and not charms.get("user_choice") \
+                and not charms.get("migrated_off"):
+            charms["enabled"] = False
+            charms["migrated_off"] = True
+    return cfg
+
+
 def load() -> dict[str, Any]:
     try:
         raw = json.loads(settings_path().read_text("utf-8"))
         if not isinstance(raw, dict):
             raise ValueError("settings root is not an object")
-        return _merge(DEFAULTS, raw)
+        return _migrate(_merge(DEFAULTS, raw))
     except FileNotFoundError:
-        return json.loads(json.dumps(DEFAULTS))
+        return _migrate(json.loads(json.dumps(DEFAULTS)))
     except Exception:
         # Corrupt settings must never stop the app from booting.
-        return json.loads(json.dumps(DEFAULTS))
+        return _migrate(json.loads(json.dumps(DEFAULTS)))
 
 
 def save(cfg: dict[str, Any]) -> None:

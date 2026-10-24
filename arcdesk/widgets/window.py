@@ -221,7 +221,7 @@ class MainWindow(QWidget):
         self.palette.set_brain(self.agent.describe())
         if scfg.get("hotkeys", True):
             self.hotkeys.start()
-        if ccfg.get("enabled", True):
+        if ccfg.get("enabled", False):
             self.show_charms(True)
 
         if self.cfg["weather"].get("enabled"):
@@ -467,7 +467,7 @@ class MainWindow(QWidget):
         self.theme = tuned(key, self.cfg.get("effects"))
         self.cfg["mode"] = key
         self.apply_theme()
-        want = bool(self.cfg.get("charms", {}).get("enabled", True))
+        want = bool(self.cfg.get("charms", {}).get("enabled", False))
         if want and self.theme.effects >= 0.2:
             if not self.overlay.isVisible():
                 self.overlay.show()
@@ -489,7 +489,7 @@ class MainWindow(QWidget):
         self.cfg["effects"] = value
         self.theme = tuned(self.theme.key, value)
         self.apply_theme()
-        want = bool(self.cfg.get("charms", {}).get("enabled", True))
+        want = bool(self.cfg.get("charms", {}).get("enabled", False))
         if want and self.theme.effects >= 0.2:
             if not self.overlay.isVisible() and self.isVisible():
                 self.overlay.show()
@@ -576,7 +576,7 @@ class MainWindow(QWidget):
         self.hotkeys.failed.connect(self._on_hotkey_failed)
         if scfg.get("hotkeys", True):
             self.hotkeys.start()
-        self.show_charms(bool(self.cfg.get("charms", {}).get("enabled", True)))
+        self.show_charms(bool(self.cfg.get("charms", {}).get("enabled", False)))
         if self.cfg.get("shadow", {}).get("tray", True) and self._tray is None:
             self.console.add_note("SETTINGS · tray icon needs a restart to appear")
         elif not self.cfg.get("shadow", {}).get("tray", True) and self._tray is not None:
@@ -1008,6 +1008,7 @@ class MainWindow(QWidget):
     # ------------------------------------------------------ gravity charms
     def show_charms(self, on: bool) -> None:
         c = self.cfg.setdefault("charms", {})
+        c["user_choice"] = True          # a person asked; never migrate this away
         c["enabled"] = bool(on)
         if on and (self.theme.effects < 0.2 or not self.cfg.get("animations", True)):
             self.console.add_note("CHARMS · suppressed by the current mode")

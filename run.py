@@ -72,6 +72,12 @@ def main(argv: list[str] | None = None) -> int:
         print("bundled runtime on PATH: " + ", ".join(_runtime), flush=True)
 
     cfg = config.load()
+    # A fresh install writes its settings file immediately. It used to appear only when
+    # something else happened to call save() — which, with the floating charms on by
+    # default, was "always". Turning those off exposed it: the first boot left no
+    # settings file at all, so nothing the person chose could be shown to persist.
+    if not config.settings_path().exists():
+        config.save(cfg)
     if args.mode:
         cfg["mode"] = args.mode
     if args.shadow:
@@ -202,6 +208,7 @@ def main(argv: list[str] | None = None) -> int:
     # first run: one card, three decisions, the evidence next to each one
     if cfg.get("first_run", True) and not (args.screenshot or args.demo_chat or args.ask):
         try:
+            from arcdesk import firstrun
             from arcdesk.ai import backends
             from arcdesk.widgets.welcome import WelcomeDialog
             engines = [d.describe() for d in backends.probe()]
@@ -217,7 +224,6 @@ def main(argv: list[str] | None = None) -> int:
             result = getattr(dlg, "setup_result", None)
             if result:
                 # say what was actually set, in the console, where it can be read again
-                from arcdesk import firstrun
                 for line in firstrun.summary(result).splitlines():
                     win.console.add_note(line)
                 # ...and make the choice TRUE right now: choosing "voice" means the ears
@@ -227,6 +233,21 @@ def main(argv: list[str] | None = None) -> int:
                     win._start_wake()
                 else:
                     win._stop_wake()
+                # ...and be VISIBLE. Stealth hides the window at boot, and after the card
+                # was answered that read as "the app did not open" (the user's report).
+                # Answering a setup card means somebody is looking at the screen.
+                if firstrun.reveal_window(True, hidden_boot):
+                    win.show()
+                    win.raise_()
+                    win.activateWindow()
+                if cfg.get("wake", {}).get("enabled"):
+                    win.console.add_note('SETUP · listening for "hey jarvis" — say '
+                                         '"bye jarvis" to put me away. Ctrl+Alt+J opens '
+                                         'this window any time.')
+                else:
+                    win.console.add_note("SETUP · icon mode: nothing listens in the "
+                                         "background. Click me (or Ctrl+Alt+J) whenever "
+                                         "you need something.")
         except Exception:
             pass
 

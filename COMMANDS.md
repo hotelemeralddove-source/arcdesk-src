@@ -50,6 +50,8 @@ sentence and points at the other two.
 | `bash packaging/build_all.sh` | Linux/macOS/CI: same spec, same bundle, `dist/ArcDesk-linux.tar.xz` (not the Windows installer) |
 | **Settings → System → "Visual effects"** | follow the mode / full / reduced / off — the one control that changes how much work a frame is |
 | **Settings → Voice → "Voices…"** | two lists: who may command ARC, and which voice it answers in (any clip — yours, or someone else's) |
+| **Settings → Voice → "Get the ears ready…"** | ticks or crosses the four things "hey jarvis" needs, and downloads the 70 MB that can be fetched in-app |
+| **Setup card → "Get the ears ready (70 MB)…"** | the same fix, offered right where the card says the machine cannot listen |
 | **Settings → Voice → "Get the reply-voice engine…"** | IndicF5 (Tamil/Hindi, 1.5 GB) and XTTS (English, 1.9 GB), installed **from the app**, with live output and a Stop button |
 | `python tools\voice_setup.py import "myclip.mp3" --transcript "the words"` | same thing from the command line |
 | **Settings → Voice → "How ARC opens"** | desktop icon or voice — the same question the setup card asks |

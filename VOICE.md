@@ -171,6 +171,24 @@ output and a Stop button (see §1c). Without it ARC says "reply voice: the syste
 instead of quietly answering in a stranger's voice. Piper (the offline fallback) is a *real* Tamil voice but
 **not yours**, and the status line names it as such.
 
+## 1d. If "hey jarvis" does nothing — the ears
+
+Four separate things, and the app now shows which one is missing instead of a grey
+sentence: **Settings → Voice → "Get the ears ready (mic + wake word)…"** (also on the
+setup card, which only offers it when the machine really cannot listen).
+
+```
+  ✔  microphone library            — sounddevice
+  ✔  wake-word engine              — vosk
+  ✗  speech model (40 MB)          — vosk-model-small-en-us-0.15
+  ✗  speaker model — voice lock    — speaker_embedding.onnx
+```
+
+One button downloads the two models (70 MB) with the lines visible, **Stop** works, and
+afterwards it **re-checks** — it never says "listening" because a download finished. If
+the wake engine itself is missing from a compiled build, the dialog says so in one
+sentence instead of spinning: a compiled `.exe` cannot add a Python package after the fact.
+
 ## 2. Only your voice wakes it, on this computer
 
 ### When, and where — the short answer

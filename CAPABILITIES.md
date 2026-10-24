@@ -393,6 +393,51 @@ unknown at build time, discovered at runtime.
 
 ---
 
+## Wave 22 — why the first start looked broken, and why "hey jarvis" was silent
+
+Reported, with a screenshot: *"this is what comes up. Nothing else of ArcDesk opens. Close
+it and double-click again — same. Voice command gets no response. And by default floating
+icons appear on the desktop."* Three real bugs, none of them cosmetic:
+
+- **the setup card trapped the person.** Five cards plus a footer in a plain vertical
+  layout — taller than a laptop screen, so **"Done" was laid out below the visible area**
+  and could never be clicked. The only way out was the ✕, which saved nothing, so
+  `first_run` stayed true and the card came back on every launch. Fixed: the cards live in
+  a **QScrollArea**, the footer with *Start ARC / Just use Lite* is pinned outside it, the
+  dialog sizes itself to 90% of the screen, and **Start ARC is the default button** (Enter
+  works). Every exit — ✕, Esc, Start, Skip — now saves an answer.
+- **nothing opened afterwards.** Stealth mode hides the window at boot (that is the
+  promised resting state), so once the card was answered the app was invisible. New
+  `firstrun.reveal_window()`: answering the card means somebody is looking at the screen,
+  so the window appears **once**; later launches stay silent.
+- **floating icons on the desktop by default.** `charms.enabled` was `true` in the
+  defaults. Now **off**, with a one-time `config._migrate()` that switches off the old
+  default for existing settings files **only where nobody ever chose it**
+  (`user_choice` is set the moment they toggle it in Settings) and keeps their decorations.
+  Side effect found and fixed: with charms off, nothing called `save()` at boot, so a fresh
+  install had no `settings.json` at all — the app now writes it on first start.
+- **"hey jarvis" had no ears.** The card had already admitted, in small grey text, *"no
+  wake-word engine is (openwakeword or vosk)"* — and offered nothing to do about it. New
+  **`arcdesk/ears.py` + `widgets/ears_dialog.py`**: four separate requirements (microphone
+  library · wake engine · 40 MB speech model · 30 MB speaker model) each ticked or crossed,
+  one button that installs/downloads what can be done from inside the app with live output,
+  a Stop that really stops, and then a **re-check** — never "ready" because a download
+  finished. Reachable from the setup card (only when the machine cannot listen) and from
+  Settings → Voice.
+- **the build now proves the ears are in the .exe.** The CI step installed
+  `vosk sounddevice sherpa-onnx` in one command, so one bad wheel silently sank all three;
+  it is now one package at a time, with a line that prints which of
+  `sounddevice / vosk / openwakeword / sherpa_onnx` are actually bundled, and
+  `packaging/arcdesk.spec` collects them and says so in the build log.
+- **new `tests/test_startup.py`** (6 sections, real Qt offscreen): the footer is reachable
+  in a 560-pixel-tall window, all four exits save an answer, the defaults really are
+  icon-mode + mic off, `reveal_window()` covers all three cases, the charms default and
+  the migration (including "a real choice is never overruled"), and a real `MainWindow`
+  whose overlay starts hidden. **new `tests/test_ears.py`** (7 sections): the four
+  requirements, the exact state the user reported, the fix that re-measures, cancel that
+  stays cancelled, a compiled build that cannot add packages admitting it, and the dialog's
+  three verdicts.
+
 ## Wave 21 — the neural engine, installed from inside the app
 
 The user's sentence: *"Clone panna neural engine thevai. add this also."* A cloned voice
@@ -448,7 +493,7 @@ pananum."* Two voices, two questions — and until now only one of them had a bu
   install_clone.bat)"*. The question "why is the reply in a different voice?" can no longer
   be answered by guessing.
 - **`ai.voice_clone` is a switch you can reach**, not a key in a JSON file.
-- **62 tests.**
+- **64 tests.**
 - **the workflow was simplified** to install → build → zip → upload. A blocking test step
   had cost four builds; the installer is now always produced, with a portable zip as the
   fallback that cannot fail.
