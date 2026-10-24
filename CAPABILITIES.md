@@ -393,6 +393,74 @@ unknown at build time, discovered at runtime.
 
 ---
 
+## Wave 24 — white letters on a white box, and a model that was there all along
+
+Two things from one screenshot, and they were unrelated:
+
+- **white on white.** The engine and ears dialogs were built with Qt's default palette.
+  The window came out white, the log came out white, and because `appendPlainText` gives a
+  `QPlainTextEdit` the focus, every line was drawn **as a selection highlight**. New
+  **`arcdesk/widgets/style.py`**: `dialog_style(theme)` is one stylesheet (window, labels,
+  log, combo boxes, lists, buttons, progress bar) built from the arc theme, and
+  `read_only_log()` makes a log read-only, `NoFocus`, and `NoTextInteraction` — it cannot
+  take the keyboard, so it cannot paint itself. Applied to the ears dialog, the engine
+  dialog and the voice library.
+- **"speech model not downloaded" one line after "already present: …\ArcDesk\vosk-model-small-en-us-0.15".**
+  Two folders for one feature: `arc_daemon.py --download-model` unpacks to
+  `<data>/vosk-model-small-en-us-0.15`, and `voice_ready.model_dir()` only looked in
+  `<data>/models/vosk` and `<data>/vosk-model`. So on that machine **"hey jarvis" could
+  never work, however many times the model was downloaded** — the app was telling the
+  truth twice and contradicting itself. One list now (`voice_ready.model_candidates()`),
+  used by the ears dialog, the setup card and the doctor, and a folder only counts when it
+  really is a Vosk model (`am/` or `conf/` inside it), not when it merely has the name.
+- **new `tests/test_theme.py`** (6 sections): all three dialogs carry the theme's colours
+  and no plain white, logs are read-only + unfocusable + unselectable, the downloader's
+  folder is found, an empty or merely-containing folder is refused, the older layouts
+  still work, the candidate list is de-duplicated, and the honest sentence changes when
+  the model appears. `tests/test_ears.py` gained a section asserting the checker and the
+  downloader name the same folder.
+
+## Wave 23 — "is it doing anything?", and an Esc that always works
+
+Reported: *"romba hang and slow ah iruku even task assign pana work aagutha nu theriya
+matiku, ena work nadakuthu nu therinja nalla irukum. esc kodutha close aaga matiku."*
+Three separate problems hiding behind the word "hang".
+
+- **new `arcdesk/activity.py`** — one thread-safe record of what is happening: the live
+  step (`tool: open_app`), a **seconds counter that keeps moving** (a clock that advances
+  is the difference between "working" and "wedged"), a timeline of finished steps, and a
+  **cancel flag the agent checks between steps**. Pure Python, no Qt, so it is tested
+  without a screen.
+- **the console shows it**: a dot, a live line (`tool: open_app · 1.4 s`) refreshed every
+  150 ms, and a **STOP** button next to it. When a request takes ≥ 1.5 s, the finished
+  steps are appended to the transcript (`tool: open_app → tool: system_report · total
+  4.2 s`) — so "what did it do?" never needs a log file.
+- **Stop really stops**: `Agent._execute` refuses to start the next tool once the flag is
+  set (`"stopped before running (you pressed Stop)"`), a slow tool gets its own time
+  attached, and a tool that raises no longer kills the turn.
+- **Esc, from anywhere.** `handle_escape()` is one decision — stop speech → stop the task
+  → close the palette → close the console → hide the window — and it is reached through
+  an **application-wide event filter**, because `keyPressEvent` never fires when the chat
+  field, the transcript or the palette holds the focus. That was the exact bug: Esc did
+  nothing because a text widget had the keyboard. When a dialog is on top, the filter
+  steps back and lets the dialog close itself (so the setup card still saves its answer).
+- **the window stops animating when it is hidden.** Stealth is the resting state, so the
+  app used to repaint a 30 fps reactor a window nobody could see, all day, on a laptop.
+  `showEvent`/`hideEvent` now pause and resume the shared ticker.
+- **the frame rate protects itself.** `FrameTicker` measures how long each frame's
+  handlers really took (`ms/frame`, smoothed) and drops the rate in steps when the machine
+  cannot afford it, climbing back when it can. And `_apply_guards()` — which runs every
+  10 s — now calls `set_base_fps()` instead of `set_fps()`, because it used to **undo that
+  slowdown every ten seconds**; on a weak laptop the app was permanently behind, which is
+  exactly what "romba slow" feels like. The footer now prints the real cost:
+  `ARC CORE 180 MB · 30 FPS · 4.1 ms/frame`.
+- **new `tests/test_activity.py`** (8 sections): the record and its clock, the agent
+  refusing the next tool after Stop, the console's live line and STOP, Esc delivered to a
+  focused chat field actually cancelling the task, Esc closing the console and hiding an
+  idle window, the ticker pausing while hidden, the frame-rate guard slowing down and
+  recovering (and not being reset by the 10-second guard), and the trail being readable
+  afterwards.
+
 ## Wave 22 — why the first start looked broken, and why "hey jarvis" was silent
 
 Reported, with a screenshot: *"this is what comes up. Nothing else of ArcDesk opens. Close
@@ -493,7 +561,7 @@ pananum."* Two voices, two questions — and until now only one of them had a bu
   install_clone.bat)"*. The question "why is the reply in a different voice?" can no longer
   be answered by guessing.
 - **`ai.voice_clone` is a switch you can reach**, not a key in a JSON file.
-- **64 tests.**
+- **66 tests.**
 - **the workflow was simplified** to install → build → zip → upload. A blocking test step
   had cost four builds; the installer is now always produced, with a portable zip as the
   fallback that cannot fail.

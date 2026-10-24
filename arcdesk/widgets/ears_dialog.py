@@ -35,12 +35,16 @@ class EarsDialog(QDialog):
         self.setWindowTitle("Microphone and wake word — what is missing")
         self.setMinimumSize(680, 520)
         self._worker: _Worker | None = None
+        from .style import dialog_style
+        if self.theme:
+            self.setStyleSheet(dialog_style(self.theme))
 
         root = QVBoxLayout(self)
         title = QLabel("Can ARC hear you?")
-        title.setStyleSheet("font-size:15pt;font-weight:600;")
+        title.setObjectName("h1")
         root.addWidget(title)
         self.intro = QLabel("")
+        self.intro.setObjectName("dim")
         self.intro.setWordWrap(True)
         root.addWidget(self.intro)
 
@@ -68,12 +72,12 @@ class EarsDialog(QDialog):
         self.bar.setVisible(False)
         root.addWidget(self.bar)
 
-        self.log = QPlainTextEdit()
-        self.log.setReadOnly(True)
-        self.log.setMaximumBlockCount(2000)
+        from .style import read_only_log
+        self.log = read_only_log(QPlainTextEdit())
         root.addWidget(self.log, 1)
 
         self.verdict = QLabel("")
+        self.verdict.setObjectName("verdict")
         self.verdict.setWordWrap(True)
         root.addWidget(self.verdict)
 

@@ -43,15 +43,19 @@ class EngineDialog(QDialog):
         self.setWindowTitle("Voice engines — what makes a clone sound real")
         self.setMinimumSize(720, 560)
         self._worker: _Worker | None = None
+        from .style import dialog_style
+        if self.theme:
+            self.setStyleSheet(dialog_style(self.theme))
 
         root = QVBoxLayout(self)
         title = QLabel("A cloned voice needs a neural engine")
-        title.setStyleSheet("font-size:15pt;font-weight:600;")
+        title.setObjectName("h1")
         root.addWidget(title)
         intro = QLabel(
             "Without one, ARC answers in the system voice — and says so. With one, it "
             "speaks in the voice you picked, in that person's own sound.\n"
             "Downloaded once, kept on this computer. Nothing is installed behind your back.")
+        intro.setObjectName("dim")
         intro.setWordWrap(True)
         root.addWidget(intro)
 
@@ -60,6 +64,7 @@ class EngineDialog(QDialog):
         root.addWidget(self.picker)
 
         self.state = QLabel("")
+        self.state.setObjectName("dim")
         self.state.setWordWrap(True)
         root.addWidget(self.state)
 
@@ -82,12 +87,12 @@ class EngineDialog(QDialog):
         self.bar.setVisible(False)
         root.addWidget(self.bar)
 
-        self.log = QPlainTextEdit()
-        self.log.setReadOnly(True)
-        self.log.setMaximumBlockCount(4000)
+        from .style import read_only_log
+        self.log = read_only_log(QPlainTextEdit())
         root.addWidget(self.log, 1)
 
         self.verdict = QLabel("")
+        self.verdict.setObjectName("verdict")
         self.verdict.setWordWrap(True)
         root.addWidget(self.verdict)
 

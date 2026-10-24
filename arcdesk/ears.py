@@ -36,6 +36,7 @@ def _have(name: str) -> bool:
 
 
 def model_dir():
+    """Where the 40 MB Vosk model really is — one list, shared with the setup card."""
     from .widgets.voice_ready import model_dir as _md
     return _md()
 

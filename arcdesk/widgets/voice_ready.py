@@ -36,12 +36,62 @@ def engine() -> str:
     return ""
 
 
-def model_dir() -> Path | None:
+VOSK_MODEL = "vosk-model-small-en-us-0.15"
+
+
+def _looks_like_a_model(path: Path) -> bool:
+    """A folder that Vosk can actually open, not just a folder with a name we like.
+
+    A real Vosk model has an `am/` (or `am_final/`) directory with the acoustic model in
+    it. Checking the name alone is how a half-finished download counts as "ready" and the
+    first "hey jarvis" then fails.
+    """
+    try:
+        if not path.is_dir() or not any(path.iterdir()):
+            return False
+        # the real layout: am/ + conf/ (+ graph/, ivector/). Nothing nested, so a folder
+        # that merely CONTAINS a model does not count as one.
+        return (path / "am").is_dir() or (path / "am_final").is_dir() \
+            or (path / "conf").is_dir()
+    except Exception:
+        return False
+
+
+def model_candidates() -> list[Path]:
+    """Every place this model is known to be written, in the order it was added.
+
+    The bug this exists for: `arc_daemon.py --download-model` unpacks the model to
+    `<data>/vosk-model-small-en-us-0.15`, and this function used to look only in
+    `<data>/models/vosk` and `<data>/vosk-model`. So the download said
+    "[arc-voice] already present: …\\vosk-model-small-en-us-0.15" and the very next line
+    said "speech model not downloaded" — the user's screenshot, exactly. One list, one
+    place, used by the ears dialog, the setup card and the doctor.
+    """
     from .. import config
-    for candidate in (config.data_dir() / "models" / "vosk",
-                      config.data_dir() / "vosk-model",
-                      Path.home() / ".cache" / "arcdesk" / "vosk"):
-        if candidate.is_dir() and any(candidate.iterdir()):
+    data = config.data_dir()
+    out = [data / VOSK_MODEL,
+           data / "models" / VOSK_MODEL,
+           data / "models" / "vosk",
+           data / "vosk-model"]
+    # anything else of the shape vosk-model-* the user may have unpacked by hand
+    try:
+        out += sorted(p for p in data.glob("vosk-model*") if p.is_dir())
+        out += sorted(p for p in (data / "models").glob("vosk-model*") if p.is_dir())
+    except Exception:
+        pass
+    out.append(Path.home() / ".cache" / "arcdesk" / "vosk")
+    seen, unique = set(), []
+    for p in out:
+        key = str(p).lower()
+        if key not in seen:
+            seen.add(key)
+            unique.append(p)
+    return unique
+
+
+def model_dir() -> Path | None:
+    for candidate in model_candidates():
+        if _looks_like_a_model(candidate):
             return candidate
     return None
 

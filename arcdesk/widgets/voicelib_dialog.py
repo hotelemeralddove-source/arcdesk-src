@@ -35,6 +35,9 @@ class VoiceLibraryDialog(QDialog):
         self.theme = theme
         self.setWindowTitle("Arc Desk · voices")
         self.setMinimumSize(640, 660)
+        from .style import dialog_style
+        if theme:
+            self.setStyleSheet(dialog_style(theme))
 
         lay = QVBoxLayout(self)
         lay.setContentsMargins(18, 16, 18, 14)
@@ -107,8 +110,8 @@ class VoiceLibraryDialog(QDialog):
             self.lang.addItem(label, code)
         lay.addWidget(self.lang)
 
-        self.out = QPlainTextEdit()
-        self.out.setReadOnly(True)
+        from .style import read_only_log
+        self.out = read_only_log(QPlainTextEdit())
         self.out.setFixedHeight(130)
         lay.addWidget(self.out)
 

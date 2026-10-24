@@ -171,6 +171,19 @@ check("a cancel says stopped", dlg.verdict.text().startswith("Stopped"), True)
 dlg._finished({"ok": False, "why": "still missing xxx"})
 check("a failure keeps promising nothing", "Not ready" in dlg.verdict.text(), True)
 
+print("\n6b) the speech-model check and the downloader finally agree on one folder")
+# This was the user's screenshot: "[arc-voice] already present:
+# C:\...\ArcDesk\vosk-model-small-en-us-0.15" and, on the next line, "speech model not
+# downloaded". Two folders for one feature. Both now come from voice_ready.
+from arcdesk.widgets import voice_ready  # noqa: E402
+names = [p.name for p in voice_ready.model_candidates()]
+check("the daemon's own folder name is on the list",
+      "vosk-model-small-en-us-0.15" in names, True)
+check("the older layouts are still accepted",
+      any(n in names for n in ("vosk-model", "vosk")), True)
+check("the ears module does not keep its own copy of the rule",
+      "model_candidates" not in (ROOT / "arcdesk" / "ears.py").read_text(encoding="utf-8"), True)
+
 print("\n7) it is reachable from setup and from Settings")
 welcome = (ROOT / "arcdesk" / "widgets" / "welcome.py").read_text(encoding="utf-8")
 settings = (ROOT / "arcdesk" / "widgets" / "settings.py").read_text(encoding="utf-8")
