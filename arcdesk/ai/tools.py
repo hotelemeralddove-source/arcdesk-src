@@ -19,6 +19,8 @@ import json
 import os
 import shutil
 import subprocess
+
+from .. import quiet
 import sys
 import time
 import webbrowser
@@ -66,7 +68,7 @@ class Tool:
 # --------------------------------------------------------------- helpers
 def _run(cmd: list[str] | str, timeout: float = 8.0, shell: bool = False) -> str:
     try:
-        out = subprocess.run(cmd, capture_output=True, text=True, timeout=timeout,
+        out = quiet.run(cmd, capture_output=True, text=True, timeout=timeout,
                              shell=shell, errors="replace")
         return (out.stdout or "").strip() or (out.stderr or "").strip()
     except Exception as exc:
@@ -92,9 +94,9 @@ def _open_path(target: str) -> str:
         if IS_WIN:
             os.startfile(target)  # noqa: S606
         elif IS_MAC:
-            subprocess.Popen(["open", target])
+            quiet.popen(["open", target])
         else:
-            subprocess.Popen(["xdg-open", target], stdout=subprocess.DEVNULL,
+            quiet.popen(["xdg-open", target], stdout=subprocess.DEVNULL,
                              stderr=subprocess.DEVNULL)
         return f"opened {target}"
     except Exception as exc:
@@ -133,7 +135,7 @@ def tool_open_app(app: str) -> str:
     if target.startswith("ms-"):
         return _open_path(target)
     try:
-        subprocess.Popen([target], shell=False, close_fds=True,
+        quiet.popen([target], shell=False, close_fds=True,
                          stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
         return f"launched {app}"
     except Exception as exc:
@@ -565,11 +567,11 @@ def tool_clipboard(action: str = "get", text: str = "") -> str:
         if IS_MAC:
             if act == "get":
                 return "clipboard: " + _run(["pbpaste"])[:500]
-            p = subprocess.run(["pbcopy"], input=text, text=True)
+            p = quiet.run(["pbcopy"], input=text, text=True)
             return "clipboard updated" if p.returncode == 0 else "ERROR: pbcopy failed"
         if act == "get":
             return "clipboard: " + (_run(["xclip", "-selection", "clipboard", "-o"]) or "(empty)")[:500]
-        subprocess.run(["xclip", "-selection", "clipboard"], input=text, text=True)
+        quiet.run(["xclip", "-selection", "clipboard"], input=text, text=True)
         return "clipboard updated"
     except Exception as exc:
         return f"ERROR: {type(exc).__name__}: {exc}"

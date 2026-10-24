@@ -28,6 +28,8 @@ import array
 import math
 import os
 import subprocess
+
+from . import quiet
 import sys
 import threading
 import wave
@@ -191,7 +193,7 @@ def _play_async(path: str) -> bool:
                                winsound.SND_NODEFAULT)
             return True
         if sys.platform == "darwin":
-            subprocess.Popen(["afplay", path], stdout=subprocess.DEVNULL,
+            quiet.popen(["afplay", path], stdout=subprocess.DEVNULL,
                              stderr=subprocess.DEVNULL)
             return True
         for player in ("paplay", "aplay", "ffplay"):
@@ -200,7 +202,7 @@ def _play_async(path: str) -> bool:
             if exe:
                 argv = [exe, path] if player != "ffplay" else \
                     [exe, "-nodisp", "-autoexit", "-loglevel", "quiet", path]
-                subprocess.Popen(argv, stdout=subprocess.DEVNULL,
+                quiet.popen(argv, stdout=subprocess.DEVNULL,
                                  stderr=subprocess.DEVNULL)
                 return True
     except Exception:

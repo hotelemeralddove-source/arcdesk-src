@@ -28,6 +28,8 @@ import os
 import re
 import shutil
 import subprocess
+
+from . import quiet
 import time
 from pathlib import Path
 
@@ -50,7 +52,7 @@ def _ffmpeg() -> str:
 
 def _run(cmd: list[str], timeout: float = 300) -> tuple[bool, str]:
     try:
-        out = subprocess.run(cmd, capture_output=True, text=True, timeout=timeout,
+        out = quiet.run(cmd, capture_output=True, text=True, timeout=timeout,
                              errors="replace")
         if out.returncode != 0:
             tail = (out.stderr or out.stdout or "").strip().splitlines()[-3:]

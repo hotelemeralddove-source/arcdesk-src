@@ -30,6 +30,8 @@ import os
 import re
 import shutil
 import subprocess
+
+from .. import quiet
 import sys
 import threading
 import time
@@ -282,18 +284,18 @@ class Voice:
                           "$s=New-Object System.Speech.Synthesis.SpeechSynthesizer;"
                           "$s.GetInstalledVoices() | ForEach-Object "
                           "{ $_.VoiceInfo.Name }")
-                out = subprocess.run(
+                out = quiet.run(
                     ["powershell", "-NoProfile", "-NonInteractive", "-Command", script],
                     capture_output=True, text=True, timeout=12, errors="replace")
                 return [ln.strip() for ln in (out.stdout or "").splitlines() if ln.strip()]
             if IS_MAC:
-                out = subprocess.run(["say", "-v", "?"], capture_output=True,
+                out = quiet.run(["say", "-v", "?"], capture_output=True,
                                      text=True, timeout=12, errors="replace")
                 return [ln.split()[0] for ln in (out.stdout or "").splitlines() if ln.strip()]
             exe = shutil.which("espeak-ng") or shutil.which("espeak")
             if not exe:
                 return []
-            out = subprocess.run([exe, "--voices"], capture_output=True,
+            out = quiet.run([exe, "--voices"], capture_output=True,
                                  text=True, timeout=12, errors="replace")
             names = []
             for ln in (out.stdout or "").splitlines()[1:]:
@@ -553,7 +555,7 @@ class Voice:
 
     def _track(self, cmd: list[str], wav: str = "") -> bool:
         try:
-            proc = subprocess.Popen(cmd, stdout=subprocess.DEVNULL,
+            proc = quiet.popen(cmd, stdout=subprocess.DEVNULL,
                                     stderr=subprocess.DEVNULL)
         except Exception:
             return False
@@ -597,7 +599,7 @@ class Voice:
             "if($res){$res.Text}"
         )
         try:
-            out = subprocess.run(
+            out = quiet.run(
                 ["powershell", "-NoProfile", "-NonInteractive", "-WindowStyle", "Hidden",
                  "-Command", script],
                 capture_output=True, text=True, timeout=safe_seconds + 6, errors="replace")

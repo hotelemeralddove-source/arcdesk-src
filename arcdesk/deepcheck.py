@@ -195,8 +195,8 @@ def environment() -> list[str]:
             continue
         version = ""
         try:
-            import subprocess
-            out = subprocess.run([found, "-version" if binary.startswith("ff") else "--version"],
+            from . import quiet
+            out = quiet.run([found, "-version" if binary.startswith("ff") else "--version"],
                                  capture_output=True, text=True, timeout=6)
             first = ((out.stdout or out.stderr or "").strip().splitlines() or [""])[0]
             version = " · " + first[:70]

@@ -25,6 +25,8 @@ import json
 import os
 import shutil
 import subprocess
+
+from .. import quiet
 import threading
 import time
 
@@ -76,7 +78,7 @@ class MCPServer:
             kwargs: dict = {}
             if os.name == "nt":
                 kwargs["creationflags"] = getattr(subprocess, "CREATE_NO_WINDOW", 0x08000000)
-            self.proc = subprocess.Popen(
+            self.proc = quiet.popen(
                 argv, stdin=subprocess.PIPE, stdout=subprocess.PIPE,
                 stderr=subprocess.PIPE, text=True, bufsize=1,
                 env={**os.environ, **self.env}, **kwargs)

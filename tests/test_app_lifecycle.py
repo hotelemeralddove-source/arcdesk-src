@@ -118,9 +118,12 @@ def main() -> int:
         Popen = FakePopen
         DEVNULL = real_subprocess.DEVNULL
 
-    import arcdesk.widgets.window as winmod
-    original = getattr(winmod, "subprocess", None)
-    winmod.subprocess = FakeSub          # type: ignore[attr-defined]
+    # The seam moved: the launcher is now spawned through quiet.popen, which is what
+    # stops a console window appearing behind the app on Windows. Patching subprocess
+    # here would prove nothing today — the app no longer calls it directly.
+    import arcdesk.quiet as quietmod
+    original = quietmod.popen
+    quietmod.popen = FakePopen           # type: ignore[assignment]
     # `_ears_can_stay()` is the seam that decides whether quitting would strand the user.
     # Wave 10 added it (never quit into silence), so the test injects "yes, something can
     # still hear me" to exercise the quit path, and case 2b below injects "no" to prove
@@ -132,10 +135,16 @@ def main() -> int:
         win.enter_magic()
         pump(app, 0.2)
         win.exit_magic()
-        pump_until(app, lambda: bool(spawned), seconds=4.0)
+        # Wait for the launcher specifically — the cue player is spawned first, so
+        # "something was spawned" would be true long before the app actually leaves.
+        pump_until(app, lambda: any("--launcher-app" in str(a)
+                                    for c in spawned for a in c), seconds=6.0)
         pump(app, 0.2)
 
-        launcher_cmd = spawned[0] if spawned else []
+        # Not spawned[0]: closing now also plays the magic_end cue, so the first
+        # child spawned during a close is the audio player. Find the launcher itself.
+        launcher_cmd = next((c for c in spawned
+                             if any("--launcher-app" in str(a) for a in c)), [])
         has_launcher = any("--launcher-app" in str(a) for a in launcher_cmd)
         print(f"2) bye_action=exit  : magic_active={win.magic_active} "
               f"wake_listening={win.wake_server.listening} "
@@ -146,8 +155,7 @@ def main() -> int:
                                                     for c in launcher_cmd[:3]), "…")
         ok &= (not win.magic_active) and has_launcher
     finally:
-        if original is not None:
-            winmod.subprocess = original      # type: ignore[attr-defined]
+        quietmod.popen = original         # type: ignore[assignment]
 
     # ---------- 2b. exit mode with nothing that could hear you -------
     win_b = make_window(app, "exit")

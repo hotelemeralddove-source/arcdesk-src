@@ -13,11 +13,18 @@
 :: Windows — first time
 install.bat
 
-:: every time after that
-start_arcdesk.vbs      (no console window, ideal for autostart)
-:: or
+:: every time after that — double-click, no console window behind the app
+ArcDesk.pyw
+:: or, for autostart (starts hidden, opens with Ctrl+Alt+J)
+start_arcdesk.vbs
+:: or, if you want the terminal output while developing
 python run.py
 ```
+
+**Nothing ARC starts gets its own command prompt.** Speaking, screen reading, ffmpeg,
+OCR, the local model and the wake daemon are all spawned through `arcdesk/quiet.py`
+(`CREATE_NO_WINDOW`), and `tests/test_quiet.py` fails the build if a new call site
+forgets. A windowless run writes to `%APPDATA%\ArcDesk\logs\arcdesk.log`.
 
 Dev / QA helpers:
 
@@ -424,7 +431,7 @@ python tools\capability.py --all
 check.bat                 :: or: python tests\run_all.py
 ```
 
-69 tests, ~80 seconds, no key, no model, no internet, no microphone and no display needed.
+70 tests, ~83 seconds, no key, no model, no internet, no microphone and no display needed.
 They cover the agent loop, the wake pipeline, magic mode, MCP, backend detection, the cost
 guard, the app lifecycle (open/close), the package catalogue, doc-to-code consistency, and
 the crash log / single instance / doctor plumbing.

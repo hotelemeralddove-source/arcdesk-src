@@ -255,9 +255,20 @@ def check_disk() -> None:
         add(INFO, "Free disk space", "unknown")
 
 
+def check_quiet() -> None:
+    """Will a command prompt appear behind the app? The one question this answers."""
+    try:
+        from arcdesk import quiet
+        add(PASS if bool(quiet._PATCHED) else FAIL, "Silent spawns", quiet.describe())
+        from arcdesk import logs
+        add(PASS, "Console output", logs.describe())
+    except Exception as exc:                          # noqa: BLE001
+        add(WARN, "Silent spawns", f"could not check: {type(exc).__name__}: {exc}")
+
+
 CHECKS = (check_python, check_qt, check_config, check_cost, check_engines,
           check_voice, check_instance, check_build, check_desktop_guard,
-          check_disk, check_logs)
+          check_quiet, check_disk, check_logs)
 
 
 def run(verbose: bool = True) -> int:

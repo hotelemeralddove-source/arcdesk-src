@@ -29,6 +29,8 @@ import os
 import re
 import shutil
 import subprocess
+
+from . import quiet
 import sys
 import time
 from pathlib import Path
@@ -176,7 +178,7 @@ def _ocr_pass(path: str, lang: str = "", psm: str = "6") -> list[dict]:
     if lang:
         cmd = [exe, str(path), "stdout", "-l", lang, "--psm", psm, "tsv"]
     try:
-        out = subprocess.run(cmd, capture_output=True, text=True, timeout=45,
+        out = quiet.run(cmd, capture_output=True, text=True, timeout=45,
                              errors="replace")
     except Exception:
         return []
@@ -519,7 +521,7 @@ def _ps(script: str, timeout: float = 10.0) -> str:
 
 def _run(cmd, timeout: float = 10.0) -> str:
     try:
-        out = subprocess.run(cmd, capture_output=True, text=True, timeout=timeout,
+        out = quiet.run(cmd, capture_output=True, text=True, timeout=timeout,
                              errors="replace")
         return ((out.stdout or "").strip() or (out.stderr or "").strip())[:600]
     except Exception as exc:

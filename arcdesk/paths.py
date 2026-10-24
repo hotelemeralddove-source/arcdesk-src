@@ -7,6 +7,8 @@ packaged app "works on my machine" but not after install, so it is centralised.
 """
 from __future__ import annotations
 
+from . import quiet
+
 import os
 import sys
 from pathlib import Path
@@ -106,19 +108,20 @@ def daemon_command(port: int, phrase: str, engine: str = "auto",
     if extra:
         args += extra
 
-    flags = 0
-    if os.name == "nt":
-        flags = getattr(__import__("subprocess"), "CREATE_NO_WINDOW", 0x08000000)
+    # One rule for every child, in one place: no console window, ever. `detached=True`
+    # also takes the daemon out of the caller's job object, so closing the app's
+    # launcher cannot kill the ears mid-sentence.
+    spawn = quiet.kwargs(detached=True)
 
     if FROZEN:
         voice = app_dir() / "ArcDeskVoice.exe"
         alt = app_dir() / "ArcDeskVoice"                # extensionless fallback
         if not voice.exists() and alt.exists():
             voice = alt
-        return [str(voice), *args], {"creationflags": flags}
+        return [str(voice), *args], spawn
 
     script = app_dir() / "arc_daemon.py"
-    return [sys.executable, str(script), *args], {"creationflags": flags}
+    return [sys.executable, str(script), *args], spawn
 
 
 def app_command(show: bool = True, shadow: bool = False) -> list[str]:

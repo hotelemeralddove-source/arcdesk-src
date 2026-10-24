@@ -22,6 +22,8 @@ import os
 import re
 import shutil
 import subprocess
+
+from . import quiet
 import time
 from pathlib import Path
 
@@ -213,7 +215,7 @@ def probe(path: str) -> dict:
     """Duration and dimensions, from ffprobe. Empty dict if unreadable."""
     try:
         exe = shutil.which("ffprobe") or "ffprobe"
-        out = subprocess.run(
+        out = quiet.run(
             [exe, "-v", "error", "-print_format", "json", "-show_format", "-show_streams",
              str(path)], capture_output=True, text=True, timeout=30, errors="replace")
         if out.returncode != 0:
@@ -623,7 +625,7 @@ def audio_chapters(path: str = "") -> str:
         exe = _ff()
     except RuntimeError as exc:
         return f"ERROR: {exc}"
-    proc = subprocess.run([exe, "-v", "info", "-i", str(src), "-af",
+    proc = quiet.run([exe, "-v", "info", "-i", str(src), "-af",
                            "silencedetect=noise=-38dB:d=0.45", "-f", "null", "-"],
                           capture_output=True, text=True, timeout=300, errors="replace")
     stamps = re.findall(r"silence_(start|end): ([\d.]+)", proc.stderr or "")

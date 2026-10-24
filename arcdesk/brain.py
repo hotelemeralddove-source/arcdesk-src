@@ -21,6 +21,8 @@ from __future__ import annotations
 import json
 import os
 import subprocess
+
+from . import quiet
 import sys
 import threading
 import time
@@ -206,7 +208,7 @@ def start_server(key: str = DEFAULT_MODEL, port: int = PORT,
     if os.name == "nt":
         flags = getattr(subprocess, "CREATE_NO_WINDOW", 0x08000000)
     try:
-        _SERVER = subprocess.Popen(argv, stdout=subprocess.DEVNULL,
+        _SERVER = quiet.popen(argv, stdout=subprocess.DEVNULL,
                                    stderr=subprocess.PIPE, creationflags=flags)
     except Exception as exc:                                   # noqa: BLE001
         return {"ok": False, "why": f"could not start it: {exc}", "url": ""}

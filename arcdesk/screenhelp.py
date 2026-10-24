@@ -30,6 +30,8 @@ from __future__ import annotations
 import re
 import shutil
 import subprocess
+
+from . import quiet
 import sys
 
 IS_WIN = sys.platform == "win32"
@@ -661,14 +663,14 @@ def read_clipboard() -> str:
     """Clipboard text, so 'explain this' works with no arguments at all."""
     try:
         if IS_WIN:
-            out = subprocess.run(
+            out = quiet.run(
                 ["powershell", "-NoProfile", "-Command", "Get-Clipboard -Raw"],
                 capture_output=True, text=True, timeout=10)
             return out.stdout or ""
         for cmd in (["wl-paste", "-n"], ["xclip", "-selection", "clipboard", "-o"],
                     ["xsel", "-b"], ["pbpaste"]):
             if shutil.which(cmd[0]):
-                out = subprocess.run(cmd, capture_output=True, text=True, timeout=10)
+                out = quiet.run(cmd, capture_output=True, text=True, timeout=10)
                 return out.stdout or ""
     except Exception:
         return ""

@@ -19,6 +19,8 @@ from __future__ import annotations
 
 import os
 import subprocess
+
+from . import quiet
 import sys
 import threading
 from pathlib import Path
@@ -154,7 +156,7 @@ def external_python() -> str:
         if not found:
             continue
         try:
-            got = subprocess.run(probe, capture_output=True, text=True, timeout=25)
+            got = quiet.run(probe, capture_output=True, text=True, timeout=25)
         except Exception:
             continue
         if got.returncode == 0 and "1" in (got.stdout or ""):
@@ -286,7 +288,7 @@ def _run(argv: list[str], on_line: Line, cancel: threading.Event | None) -> dict
     """
     env = dict(os.environ, PYTHONUNBUFFERED="1", PIP_DISABLE_PIP_VERSION_CHECK="1")
     try:
-        proc = subprocess.Popen(argv, stdout=subprocess.PIPE, stderr=subprocess.STDOUT,
+        proc = quiet.popen(argv, stdout=subprocess.PIPE, stderr=subprocess.STDOUT,
                                 text=True, bufsize=1, env=env)
     except Exception as exc:  # noqa: BLE001 — must be reported, not raised
         return {"ok": False, "code": -1, "why": f"could not start: {exc}", "last": ""}

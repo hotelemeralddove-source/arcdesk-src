@@ -23,6 +23,8 @@ tool still runs on Linux/macOS during development.
 """
 from __future__ import annotations
 
+from . import quiet
+
 import os
 import re
 import sys
@@ -124,7 +126,7 @@ def _explorer_running():
 def _gsettings_wallpaper():
     try:
         import subprocess
-        out = subprocess.run(["gsettings", "get", "org.gnome.desktop.background",
+        out = quiet.run(["gsettings", "get", "org.gnome.desktop.background",
                               "picture-uri"], capture_output=True, text=True, timeout=3)
         return out.stdout.strip() or None
     except Exception:

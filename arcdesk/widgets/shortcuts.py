@@ -6,6 +6,8 @@ process watching, one subprocess per click and nothing else.
 from __future__ import annotations
 
 import subprocess
+
+from .. import quiet
 import sys
 from pathlib import Path
 
@@ -88,11 +90,11 @@ class ShortcutShelf(QWidget):
                     import os
                     os.startfile(cmd)  # noqa: S606
                 else:
-                    subprocess.Popen([cmd], close_fds=True)
+                    quiet.popen([cmd], close_fds=True)
             elif sys.platform == "darwin":
-                subprocess.Popen(["open", target])
+                quiet.popen(["open", target])
             else:
-                subprocess.Popen(["xdg-open", target], close_fds=True)
+                quiet.popen(["xdg-open", target], close_fds=True)
             self.status.emit(f"LAUNCHED · {tile.text()}")
         except Exception as exc:
             self.status.emit(f"LAUNCH FAILED · {type(exc).__name__}")

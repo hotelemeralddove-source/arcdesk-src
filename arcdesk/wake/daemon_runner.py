@@ -12,6 +12,8 @@ from __future__ import annotations
 
 import os
 import subprocess
+
+from .. import quiet
 from pathlib import Path
 
 from .. import config
@@ -51,7 +53,7 @@ class DaemonRunner:
                                "In a packaged build this is ArcDeskVoice.exe next to the app.")
             return False
         try:
-            self.proc = subprocess.Popen(
+            self.proc = quiet.popen(
                 cmd, cwd=str(app_dir()), stdout=subprocess.DEVNULL,
                 stderr=subprocess.DEVNULL,
                 env={**os.environ, "PYTHONIOENCODING": "utf-8"}, **kwargs)

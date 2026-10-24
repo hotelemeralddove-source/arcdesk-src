@@ -412,7 +412,7 @@ sollum ("0.0 GB" illa). Ithu un feature-a nambi vechirukkum idam — adhaan fix.
 
 | | |
 |---|---|
-| `tests/run_all.py` | **69/69 pass** (81 s) |
+| `tests/run_all.py` | **70/70 pass** (83 s) |
 | `tools/crosscheck.py` | **54 proven · 0 failed** · 4 need Windows hardware |
 | `tools/packaging.py` | 72 checks · 0 failed |
 | `gen_tools_doc --check` | 88 tools · 0 mismatch |
@@ -786,5 +786,5 @@ Naan kekkuradhu easy dhaan — Tanglish, English, Tamil, mix — ellam.
 
 Everything on this page is enforced by `tests/test_coach.py`, `tests/test_screenhelp.py`,
 `tests/test_world.py`, `tests/test_playback.py`, `tests/test_inside.py`, `tests/test_pchealth.py`,
-`tests/test_cinematic.py` and `tests/test_docs.py` — 69 tests, one command:
+`tests/test_cinematic.py`, `tests/test_quiet.py` and `tests/test_docs.py` — 70 tests, one command:
 `python tests/run_all.py`.

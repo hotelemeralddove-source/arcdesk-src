@@ -11,6 +11,8 @@ from __future__ import annotations
 
 import os
 import subprocess
+
+from .. import quiet
 import threading
 import time
 from pathlib import Path
@@ -1138,9 +1140,14 @@ class MainWindow(QWidget):
                 str(self.cfg["wake"].get("engine") or "auto"),
                 str(self.cfg.get("magic", {}).get("exit_phrase") or "bye jarvis"),
                 launcher_app="1")
-            spawn = spawn or subprocess.Popen
+            # quiet.popen, not subprocess.Popen: the launcher is the process the user
+            # sees most often, and a console window here is the loudest possible bug.
+            # start_new_session now lives in daemon_command's kwargs (translated to
+            # DETACHED_PROCESS on Windows), because passing the POSIX name to Windows
+            # raises ValueError instead of detaching.
+            spawn = spawn or quiet.popen
             proc = spawn(cmd, cwd=str(config.data_dir()), stdout=subprocess.DEVNULL,
-                         stderr=subprocess.DEVNULL, start_new_session=True, **kwargs)
+                         stderr=subprocess.DEVNULL, **kwargs)
         except Exception as exc:
             return None, f"the launcher could not start ({type(exc).__name__}: {exc})"
 
@@ -1531,7 +1538,7 @@ class MainWindow(QWidget):
         from pathlib import Path as _Path
         script = _Path(__file__).resolve().parents[2] / "arc_daemon.py"
         try:
-            subprocess.Popen([_sys.executable, str(script), "--port",
+            quiet.popen([_sys.executable, str(script), "--port",
                               str(int(w.get("port", 8765))),
                               "--simulate", "system report"],
                              stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)

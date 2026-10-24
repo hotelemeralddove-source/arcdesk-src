@@ -8,6 +8,8 @@ from __future__ import annotations
 import os
 import shutil
 import subprocess
+
+from .. import quiet
 import sys
 import threading
 from pathlib import Path
@@ -484,9 +486,9 @@ class SettingsDialog(QDialog):
             if sys.platform == "win32":
                 os.startfile(folder)  # noqa: S606
             elif sys.platform == "darwin":
-                subprocess.Popen(["open", folder])
+                quiet.popen(["open", folder])
             else:
-                subprocess.Popen(["xdg-open", folder])
+                quiet.popen(["xdg-open", folder])
         except Exception as exc:
             QMessageBox.warning(self, "Could not open", f"{folder}\n\n{exc}")
 

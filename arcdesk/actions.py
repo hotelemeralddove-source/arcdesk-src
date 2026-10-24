@@ -34,6 +34,8 @@ import os
 import re
 import shutil
 import subprocess
+
+from . import quiet
 import sys
 import time
 from pathlib import Path
@@ -101,7 +103,7 @@ def recent_actions(limit: int = 20) -> str:
 # ------------------------------------------------------------------ shell helper
 def _run(cmd, timeout: float = 8.0, shell: bool = False) -> str:
     try:
-        out = subprocess.run(cmd, capture_output=True, text=True, timeout=timeout,
+        out = quiet.run(cmd, capture_output=True, text=True, timeout=timeout,
                              shell=shell, errors="replace")
         return ((out.stdout or "").strip() or (out.stderr or "").strip())[:MAX_OUTPUT]
     except Exception as exc:
@@ -408,7 +410,7 @@ def run_command(command: str = "", timeout: float = 20.0) -> str:
                 f"I will not run it. If you really need it, do it yourself.")
     cap = max(1.0, min(float(timeout or 20.0), CMD_TIMEOUT))
     try:
-        out = subprocess.run(command, shell=True, capture_output=True, text=True,
+        out = quiet.run(command, shell=True, capture_output=True, text=True,
                              timeout=cap, errors="replace")
         text = ((out.stdout or "").strip() or (out.stderr or "").strip())
         res = f"exit {out.returncode}: {text[:MAX_OUTPUT] or '(no output)'}"

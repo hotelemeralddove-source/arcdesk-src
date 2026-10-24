@@ -20,6 +20,8 @@ otherwise straight to pixels — and it says so.
 from __future__ import annotations
 
 import subprocess
+
+from . import quiet
 import sys
 
 from . import vision
@@ -32,7 +34,7 @@ MAX_CONTROLS = 60
 
 def _run(cmd, timeout: float = 12.0) -> str:
     try:
-        out = subprocess.run(cmd, capture_output=True, text=True, timeout=timeout,
+        out = quiet.run(cmd, capture_output=True, text=True, timeout=timeout,
                              errors="replace")
         return ((out.stdout or "").strip() or (out.stderr or "").strip())[:1500]
     except Exception as exc:

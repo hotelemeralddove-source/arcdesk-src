@@ -656,7 +656,25 @@ pananum."* Two voices, two questions — and until now only one of them had a bu
   whole set is mono 16-bit at 22 kHz, a play never blocks or raises, `min_gap` and the
   volume-keyed cache behave, every line is the exact requested sentence, the honourific
   works, the order is line-then-close, and the Settings switches exist and are saved.
-- **69 tests.**
+- **no stray command prompt, ever** (`arcdesk/quiet.py`): ArcDesk is a windowless
+  program, so on Windows every console child used to get a brand-new black window — one
+  per spoken sentence (PowerShell SAPI), per screen read, per ffmpeg/tesseract pass, per
+  wake-daemon restart. `-WindowStyle Hidden` is not a fix (PowerShell still shows the
+  console first); `CREATE_NO_WINDOW` on the spawn is. **95 spawn sites in 24 modules** now
+  go through one wrapper, and `tests/test_quiet.py` scans the source so a new
+  `subprocess.run(` fails the suite instead of appearing on someone's screen.
+  POSIX is unchanged: flags dropped, `start_new_session`/`DETACHED_PROCESS` translated.
+- **`ArcDesk.pyw`** — the double-click launcher with no console behind it (`pythonw.exe`
+  runs `.pyw`). It points a missing `stdout`/`stderr` at
+  `%APPDATA%\ArcDesk\logs\arcdesk.log` first, because under `pythonw.exe` the first
+  `print()` in `run.py` would otherwise raise `AttributeError` and the app would die
+  before drawing anything. A windowless crash leaves a traceback there.
+- **`tests/test_quiet.py`** (7 sections): the flag translation (measured on the Windows
+  branch too), a real child still answering, `check=True` still raising, `shell=True`
+  working, zero direct `subprocess` calls left in runtime code, the daemon spawned
+  detached, the `.pyw` launcher surviving a missing console, and the spec staying
+  `console=False`.
+- **70 tests.**
 - **the workflow was simplified** to install → build → zip → upload. A blocking test step
   had cost four builds; the installer is now always produced, with a portable zip as the
   fallback that cannot fail.

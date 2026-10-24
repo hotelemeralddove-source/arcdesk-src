@@ -36,6 +36,8 @@ import json
 import os
 import shutil
 import subprocess
+
+from . import quiet
 import sys
 import wave
 from pathlib import Path
@@ -423,7 +425,7 @@ def analyse(path: str | Path) -> dict:
                     "background_db": -120.0, "snr_db": 0.0, "clip_pct": 0.0,
                     "grade": "unknown", "advice": "ffmpeg is needed to read that format"}
         tmp = Path(str(p) + ".analyse.wav")
-        done = subprocess.run([exe, "-y", "-hide_banner", "-loglevel", "error",
+        done = quiet.run([exe, "-y", "-hide_banner", "-loglevel", "error",
                                "-i", str(p), "-vn", "-ac", "1",
                                "-ar", str(SAMPLE_RATE), "-c:a", "pcm_s16le", str(tmp)],
                               capture_output=True, text=True, timeout=600)
@@ -540,7 +542,7 @@ def import_reference(src: str, transcript_text: str = "") -> dict:
                 return {"ok": False,
                         "message": "ffmpeg is needed to read that file — run install.bat "
                                    "or export the clip as WAV and try again"}
-            done = subprocess.run(
+            done = quiet.run(
                 [exe, "-y", "-hide_banner", "-loglevel", "error", "-i", str(source),
                  "-vn", "-ac", "1", "-ar", str(SAMPLE_RATE), "-c:a", "pcm_s16le", str(raw)],
                 capture_output=True, text=True, timeout=300)
@@ -700,10 +702,10 @@ def _play_file(path: Path) -> bool:
             winsound.PlaySound(str(path), winsound.SND_FILENAME)
             return True
         if shutil.which("aplay"):
-            subprocess.run(["aplay", "-q", str(path)], timeout=120)
+            quiet.run(["aplay", "-q", str(path)], timeout=120)
             return True
         if shutil.which("afplay"):
-            subprocess.run(["afplay", str(path)], timeout=120)
+            quiet.run(["afplay", str(path)], timeout=120)
             return True
     except Exception:
         return False

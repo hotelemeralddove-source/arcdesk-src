@@ -28,6 +28,8 @@ import random
 import re
 import shutil
 import subprocess
+
+from . import quiet
 import time
 import urllib.error
 import urllib.request
@@ -423,7 +425,7 @@ def video(prompt: str, seconds: float = 4.0, width: int = 960, height: int = 540
             "-c:v", "libx264", "-preset", "veryfast", "-pix_fmt", "yuv420p",
             "-crf", "24", "-movflags", "+faststart", str(target)]
     try:
-        res = subprocess.run(cmd, capture_output=True, text=True, timeout=300,
+        res = quiet.run(cmd, capture_output=True, text=True, timeout=300,
                              errors="replace")
     except Exception as exc:
         return f"ERROR: ffmpeg failed ({exc})"

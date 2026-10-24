@@ -30,6 +30,8 @@ import os
 import re
 import subprocess
 
+from . import quiet
+
 COMMON = {
     "password", "123456", "12345678", "qwerty", "india123", "letmein", "admin",
     "welcome", "iloveyou", "monkey", "dragon", "abc123", "password1", "123456789",
@@ -160,7 +162,7 @@ def _ps(command: str, timeout: float = 8.0) -> str:
     if os.name != "nt":
         return ""
     try:
-        out = subprocess.run(["powershell", "-NoProfile", "-Command", command],
+        out = quiet.run(["powershell", "-NoProfile", "-Command", command],
                              capture_output=True, text=True, timeout=timeout,
                              errors="replace")
         return (out.stdout or "").strip()

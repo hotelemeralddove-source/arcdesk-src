@@ -28,6 +28,8 @@ import os
 import re
 import shutil
 import subprocess
+
+from . import quiet
 import tempfile
 from dataclasses import dataclass, field
 from pathlib import Path
@@ -447,7 +449,7 @@ def _ffprobe(path: str) -> dict:
     if not exe:
         return {}
     try:
-        out = subprocess.run([exe, "-v", "quiet", "-print_format", "json",
+        out = quiet.run([exe, "-v", "quiet", "-print_format", "json",
                               "-show_format", "-show_streams", path],
                              capture_output=True, text=True, timeout=25)
         return json.loads(out.stdout or "{}")
@@ -530,7 +532,7 @@ def _frame_text(path: str, doc: Document, at: float = 1.0, limit: int = 1500) ->
     import tempfile
     shot = str(Path(tempfile.gettempdir()) / f"arc_frame_{abs(hash(path)) % 10000}.png")
     try:
-        subprocess.run([exe, "-y", "-v", "quiet", "-ss", str(at), "-i", path,
+        quiet.run([exe, "-y", "-v", "quiet", "-ss", str(at), "-i", path,
                         "-frames:v", "1", shot], timeout=30)
         from . import vision
         if not vision.ocr_available():

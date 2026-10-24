@@ -19,6 +19,8 @@ import os
 import shutil
 import signal
 import subprocess
+
+from . import quiet
 import sys
 import time
 from pathlib import Path
@@ -64,7 +66,7 @@ def _spawn(cmd: list[str], player: str, files: list[str]) -> tuple[bool, str, fl
     started = time.time()
     env = dict(os.environ)
     try:
-        proc = subprocess.Popen(cmd, stdin=subprocess.DEVNULL, stdout=subprocess.DEVNULL,
+        proc = quiet.popen(cmd, stdin=subprocess.DEVNULL, stdout=subprocess.DEVNULL,
                                 stderr=subprocess.PIPE, start_new_session=True,
                                 env=env)
     except Exception as exc:
@@ -111,9 +113,9 @@ def _open_default(path: str) -> str:
         if os.name == "nt":
             os.startfile(path)                      # noqa: S606 — the user asked
         elif sys.platform == "darwin":
-            subprocess.Popen(["open", path], start_new_session=True)
+            quiet.popen(["open", path], start_new_session=True)
         else:
-            subprocess.Popen(["xdg-open", path], stdout=subprocess.DEVNULL,
+            quiet.popen(["xdg-open", path], stdout=subprocess.DEVNULL,
                              stderr=subprocess.DEVNULL, start_new_session=True)
         return f"handed {Path(path).name} to the default player"
     except Exception as exc:

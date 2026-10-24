@@ -14,12 +14,16 @@ from pathlib import Path
 from PySide6.QtCore import QTimer
 from PySide6.QtWidgets import QApplication, QDialog, QSystemTrayIcon
 
-from arcdesk import __version__, config
+from arcdesk import __version__, config, logs
 from arcdesk.theme import MODE_ORDER
 from arcdesk.widgets.window import MainWindow
 
 
 def main(argv: list[str] | None = None) -> int:
+    # First, before a single print(): a windowless launch (pythonw.exe, the Startup
+    # shortcut, the installed exe) has sys.stdout = None, and the first print would
+    # otherwise kill the app with nothing on screen to explain it.
+    logs.ensure_streams()
     argv = list(sys.argv if argv is None else argv)
     ap = argparse.ArgumentParser(prog="arcdesk", description="Arc Desk — Phase 1")
     ap.add_argument("--mode", choices=MODE_ORDER, help="start in this power mode")
@@ -51,7 +55,6 @@ def main(argv: list[str] | None = None) -> int:
     ap.add_argument("--version", action="version", version=f"Arc Desk {__version__}")
     args, qt_args = ap.parse_known_args(argv[1:])
 
-    from arcdesk import logs
     logs.install()
 
     if args.doctor:

@@ -142,6 +142,36 @@ device is swallowed silently, and a slow speech engine cannot delay the close.
 
 ---
 
+## 0d. No command prompt behind the app — ever
+
+ArcDesk is windowless by design (no black box, no `console` in the exe). The side effect
+used to be that **every** console program it started got its own brand-new black window:
+speak a sentence (PowerShell SAPI) — one window; read the screen — another; ffmpeg,
+tesseract, a wake-daemon restart — another each. That is the "neraya command prompt open
+aaitae iruku" problem.
+
+`-WindowStyle Hidden` never fixed it, because PowerShell creates and shows the console
+*before* applying the style. The fix is `CREATE_NO_WINDOW` on the spawn itself, in one
+place (`arcdesk/quiet.py`), used by **95 spawn sites across 24 modules**.
+
+| How you start it | What you see |
+|---|---|
+| double-click **`ArcDesk.pyw`** | the app, and nothing else (`pythonw.exe` runs `.pyw`) |
+| double-click `ArcDesk.exe` (installed) | the app, and nothing else (`console=False`) |
+| `python run.py` in a terminal | that terminal (yours), and **no extra windows** |
+| anything ARC does afterwards — speaking, screenshots, ffmpeg, OCR, model server, wake daemon | **nothing** — every child is spawned silent |
+
+| Where it lands | Why |
+|---|---|
+| `%APPDATA%\ArcDesk\logs\arcdesk.log` | `pythonw.exe` has no console: anything the app prints, plus a traceback if it ever dies, goes here |
+
+| Command | What it does |
+|---|---|
+| `python tests\test_quiet.py` | proves it: the flag translation, a real child still answering, and a source scan that fails if any module starts a console child behind the app |
+| `python -c "from arcdesk import quiet; print(quiet.describe())"` | one line: how many spawn sites are routed through the silent layer |
+
+---
+
 ## 1. Drawing — the thing you asked about
 
 | You say | What happens | Needs |
