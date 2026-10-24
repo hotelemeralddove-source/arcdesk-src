@@ -18,7 +18,7 @@ from pathlib import Path
 from PySide6.QtCore import QEvent, QObject, QPoint, QRectF, Qt, QTimer, Signal
 from PySide6.QtGui import QColor, QFont, QGuiApplication, QLinearGradient, QPainter, QPainterPath, QPen
 from PySide6.QtWidgets import (
-    QApplication, QFrame, QHBoxLayout, QLabel, QMenu, QMessageBox, QPushButton,
+    QApplication, QDialog, QFrame, QHBoxLayout, QLabel, QMenu, QMessageBox, QPushButton,
     QStackedWidget, QVBoxLayout, QWidget,
 )
 
@@ -49,7 +49,7 @@ from .hud import ClockCard, ModeBar
 from .reactor import ArcReactor
 from .shortcuts import Card, ShortcutShelf
 
-HINT_IDLE = "READY · CTRL+J CONSOLE · CTRL+SPACE ASK · ESC HIDE"
+HINT_IDLE = "READY · CTRL+J CONSOLE · CTRL+SPACE ASK · ESC CLOSE"
 
 
 def _rgba(hexs: str, alpha: float) -> str:
@@ -188,6 +188,38 @@ class MainWindow(QWidget):
         self._build()
         self._restore_geometry()
 
+        # Esc must work no matter which child has the keyboard focus — that was the
+        # complaint ("esc kodutha close aaga matiku"). A widget-level keyPressEvent is
+        # not enough: the chat field, the transcript and the palette all eat keys, and
+        # a frameless window does not always hold the focus ring. One application-wide
+        # filter, installed once, decides for all of them.
+        app = QApplication.instance()
+        if app is not None:
+            app.installEventFilter(self)
+        # Belt AND braces. An event filter only sees keys that reach the application's
+        # own widgets; a QShortcut with ApplicationShortcut context is delivered by Qt
+        # even when the focus sits in the chat field, in a list, or in a menu. The user
+        # pressed Esc twice and nothing happened, so this no longer relies on one
+        # mechanism.
+        try:
+            from PySide6.QtGui import QKeySequence, QShortcut
+            self._esc = QShortcut(QKeySequence(Qt.Key.Key_Escape), self)
+            self._esc.setContext(Qt.ShortcutContext.ApplicationShortcut)
+            self._esc.setAutoRepeat(False)
+            self._esc.activated.connect(self.escape_pressed)
+            self._hide_shortcut = QShortcut(QKeySequence("Ctrl+Alt+H"), self)
+            self._hide_shortcut.setContext(Qt.ShortcutContext.ApplicationShortcut)
+            self._hide_shortcut.activated.connect(self.hide)
+        except Exception:
+            self._esc = None
+        self._esc_hint_shown = False
+        self._last_esc = 0.0
+        # STOP in the console is the same action as the Esc path, and the agent's
+        # step announcements drive the console's process strip
+        self.console.stop_requested.connect(self.cancel_current)
+        self.agent.step_started.connect(self.console.step_running)
+        self.agent.step_finished.connect(self.console.step_done)
+
         self._stats_timer = QTimer(self)
         self._stats_timer.setInterval(1000)
         self._stats_timer.timeout.connect(self._refresh_stats)
@@ -205,6 +237,7 @@ class MainWindow(QWidget):
         self._day_timer.timeout.connect(self._check_day)
         self._day_timer.start()
         self._guard_reason = ""
+        self._status_checked = 0.0        # throttles the TCP probe in the status card
 
         self._heard.connect(self._on_heard)
         self._mic_state.connect(self._on_mic_state)
@@ -352,6 +385,21 @@ class MainWindow(QWidget):
         self.shelf = ShortcutShelf(self.cfg.get("shortcuts") or [])
         self.shelf.status.connect(self._on_status)
         dl.addWidget(Card(self.shelf))
+
+        # The right column used to be half empty under the shortcuts. This is the one
+        # card that answers the three questions the user actually asked, in the place
+        # they look: what thinks, can it hear, and whose voice answers.
+        status_card = QFrame()
+        status_card.setObjectName("card")
+        stl = QVBoxLayout(status_card)
+        stl.setContentsMargins(18, 12, 18, 12)
+        stl.setSpacing(5)
+        self.lbl_brain = _label("", "stat", 10, 1.6)
+        self.lbl_ears = _label("", "stat", 10, 1.6)
+        self.lbl_voice = _label("", "stat", 10, 1.6)
+        for w in (self.lbl_brain, self.lbl_ears, self.lbl_voice):
+            stl.addWidget(w)
+        dl.addWidget(status_card)
         dl.addStretch(1)
 
         self.mode_bar = ModeBar()
@@ -513,17 +561,52 @@ class MainWindow(QWidget):
         self.lbl_mem.setText(f"MEMORY  {fmt_gb(s.mem_used)} / {fmt_gb(s.mem_total)}")
         self.lbl_cores.setText(f"THREADS {s.cores}   ·   {ticker().fps} FPS CAP")
         voice = self.wake_daemon.rss_mb()
+        st = ticker().stats()
+        perf = f"{st['fps']} FPS · {st['frame_ms']:.1f} ms/frame"
         if voice:
-            self.lbl_foot.setText(f"ARC CORE {s.self_mb:.0f} MB   ·   VOICE {voice:.0f} MB")
+            self.lbl_foot.setText(f"ARC CORE {s.self_mb:.0f} MB   ·   VOICE {voice:.0f} MB"
+                                  f"   ·   {perf}")
         else:
-            self.lbl_foot.setText(f"ARC CORE {s.self_mb:.0f} MB")
+            self.lbl_foot.setText(f"ARC CORE {s.self_mb:.0f} MB   ·   {perf}")
+        self._refresh_status_card()
+        # the honest answer to "is it doing anything?" — on the window, always
+        from .. import activity as _activity
+        snap = _activity.activity().snapshot()
+        if snap["busy"]:
+            self.lbl_ready.setText(f"● {snap['live'] or snap['state']} · "
+                                   f"{snap['elapsed']:.1f} s")
+        self.console.refresh_activity()
+
+    def _refresh_status_card(self) -> None:
+        """Three lines, refreshed every 10 s (a TCP probe once a second would cost more
+        than the card is worth). Says what is true, including "Lite"."""
+        now = time.monotonic()
+        if now - self._status_checked < 10.0 and self.lbl_brain.text():
+            return
+        self._status_checked = now
+        try:
+            from .. import brain as _brain, ears as _ears, identity as _id
+            st = _brain.status()
+            self.lbl_brain.setText(f"BRAIN  ·  {_id.name(self.cfg)}  ·  "
+                                   f"{'local model running' if st['running'] else 'Lite (offline, instant)'}")
+            e = _ears.status()
+            self.lbl_ears.setText("EARS   ·  " + (
+                "ready — say the wake word" if e["ready"] else
+                "not ready (" + ", ".join(e["rows"][k]["label"].split(" (")[0]
+                                          for k in e["missing"]) + ")"))
+            self.lbl_voice.setText("VOICE  ·  " + self.reply_voice_line())
+        except Exception as exc:
+            self.lbl_brain.setText(f"STATUS unavailable: {type(exc).__name__}")
 
     def _apply_guards(self) -> None:
         base = int(self.cfg.get("fps_cap") or self.theme.fps)
         fps, reason = guard.desired_fps(base)
         if self.cfg.get("battery_saver", True) is False:
             fps, reason = base, ""
-        ticker().set_fps(fps)
+        # set_base_fps, not set_fps: this runs every 10 s and used to undo the ticker's
+        # own slowdown, so a machine that could not afford 30 fps was pushed back to 30
+        # every ten seconds — that is what "romba slow" feels like from the inside.
+        ticker().set_base_fps(fps)
         if reason != self._guard_reason:
             self._guard_reason = reason
             self.lbl_ready.setText(reason or HINT_IDLE)
@@ -547,6 +630,14 @@ class MainWindow(QWidget):
             QTimer.singleShot(30, self.console.focus_input)
         else:
             self.setFocus()
+
+    def reply_voice_line(self) -> str:
+        """One line: which voice answers. Delegated so there is one wording, not two."""
+        try:
+            from .settings import SettingsDialog
+            return SettingsDialog.reply_voice_line(self.cfg)
+        except Exception:
+            return "system voice"
 
     def open_settings(self) -> None:
         dlg = SettingsDialog(self.cfg, self.theme, self)
@@ -667,6 +758,17 @@ class MainWindow(QWidget):
     def _on_thinking(self, busy: bool) -> None:
         self.console.set_busy(busy)
         if busy:
+            self.console.begin_task("")
+        if not busy:
+            # After the fact, show what actually ran — so "what did it do?" never
+            # needs a log file. Skipped when everything happened in a blink.
+            from .. import activity as _activity
+            snap = _activity.activity().snapshot()
+            if snap["elapsed"] >= 1.5 and snap["history"]:
+                steps = [h for h in snap["history"] if not h.startswith("thinking")][-4:]
+                tail = " → ".join(steps) if steps else "one quick step"
+                self.console.add_step(f"{tail} · total {snap['elapsed']:.1f} s")
+        if busy:
             self.companion.set_state(THINKING)
         elif self.companion._state == THINKING:  # noqa: SLF001
             self.companion.set_state(IDLE)
@@ -711,6 +813,39 @@ class MainWindow(QWidget):
 
     def _on_tool(self, name: str, args: str, result: str) -> None:
         self.console.add_tool(name, args, result)
+        self.console.refresh_activity()
+
+    def cancel_current(self) -> bool:
+        """Stop means stop: speech first, then the worker, and say which happened."""
+        from .. import activity as _activity
+        act = _activity.activity()
+        stopped = False
+        try:
+            if self.voice.speaking:
+                self.voice.stop()
+                stopped = True
+        except Exception:
+            pass
+        if act.busy:
+            act.cancel()
+            self.console.add_note("STOPPED · you stopped this request")
+            stopped = True
+        # the wake daemon waits on its own reply; ask it to drop that wait too, but
+        # only if this build's runner has the hook (it is an optional extra, not a
+        # reason for Stop to raise)
+        try:
+            if getattr(self.wake_daemon, "thinking", False) and \
+                    hasattr(self.wake_daemon, "stop_thinking"):
+                self.wake_daemon.stop_thinking()
+                stopped = True
+        except Exception:
+            pass
+        self.console.set_busy(False)
+        self.companion.set_state(IDLE)
+        if not stopped:
+            self.console.add_note("nothing was running")
+        self.console.refresh_activity()
+        return stopped
 
     def _on_ai_error(self, text: str) -> None:
         self.console.add_note("⚠ " + text)
@@ -1363,14 +1498,33 @@ class MainWindow(QWidget):
 
     # ------------------------------------------------------------- events
     def eventFilter(self, obj, event) -> bool:  # noqa: N802
-        if obj is self.reactor:
-            if event.type() == QEvent.Type.MouseButtonRelease:
-                if event.button() == Qt.MouseButton.LeftButton:
-                    self.cycle_mode()
-                    return True
-                if event.button() == Qt.MouseButton.RightButton:
-                    self._show_quick_menu()
-                    return True
+        """Two jobs, one filter: the reactor's mouse buttons, and Esc from anywhere.
+
+        Esc used to be handled only in `keyPressEvent`, which never fires when the chat
+        field, the transcript or the palette hold the focus — the user's words were
+        "esc kodutha close aaga matiku". A filter on the application sees the key first,
+        whatever has the focus, and hands it to `handle_escape()`.
+        """
+        if obj is self.reactor and event.type() == QEvent.Type.MouseButtonRelease:
+            if event.button() == Qt.MouseButton.LeftButton:
+                self.cycle_mode()
+                return True
+            if event.button() == Qt.MouseButton.RightButton:
+                self._show_quick_menu()
+                return True
+        if event.type() == QEvent.Type.KeyPress and event.key() == Qt.Key.Key_Escape:
+            try:
+                app = QApplication.instance()
+                if app is not None and app.activeModalWidget() is not None:
+                    return False          # a dialog owns this Esc (it saves an answer)
+                focused = app.focusWidget() if app is not None else None
+                if focused is not None and isinstance(focused.window(), QDialog) \
+                        and focused.window() is not self:
+                    return False
+            except Exception:
+                pass
+            if self.handle_escape():
+                return True
         return super().eventFilter(obj, event)
 
     def mousePressEvent(self, event) -> None:  # noqa: N802
@@ -1386,17 +1540,78 @@ class MainWindow(QWidget):
     def mouseReleaseEvent(self, event) -> None:  # noqa: N802
         self._drag = None
 
+    def escape_pressed(self) -> None:
+        """Esc, from the shortcut: close the topmost thing, then the window, then quit.
+
+        The user's words were "esc kodutha close aaga matiku". The ladder is now
+        explicit, and the last rung exists because "close" can honestly mean "get this
+        off my screen for good":
+
+            visible dialog   -> close it (and it saves its own answer)
+            speech           -> stop the voice
+            running task     -> stop the task
+            palette / console/ holo -> close that
+            window visible   -> hide it, and say how to get it back
+            window hidden    -> quit the app (tray icon included)
+        """
+        try:
+            from PySide6.QtWidgets import QApplication as _QApp
+            modal = _QApp.activeModalWidget()
+            if modal is not None and modal is not self:
+                modal.reject()
+                return
+        except Exception:
+            pass
+        if self.isVisible():
+            self.handle_escape()
+            return
+        # already hidden: Esc means "then close it properly"
+        self.console.add_note("Esc on a hidden window quits Arc Desk")
+        try:
+            QApplication.instance().quit()
+        except Exception:
+            self.close()
+
+    def handle_escape(self) -> bool:
+        """One place that decides what Esc means. Returns True if it did something."""
+        from .. import activity as _activity
+        try:
+            if self.voice.speaking:
+                self.voice.stop()
+                self.console.add_note("speech stopped")
+                return True
+        except Exception:
+            pass
+        if _activity.activity().busy:
+            self.cancel_current()
+            return True
+        if self.palette.isVisible():
+            self.palette.hide()
+            return True
+        if self._console_open:
+            self.toggle_console(False)
+            return True
+        try:
+            if getattr(self, "_holo_window", None) is not None \
+                    and self._holo_window.isVisible():
+                self._holo_window.close()
+                return True
+        except Exception:
+            pass
+        if getattr(self, "_magic_screen", None) is not None \
+                and self._magic_screen.isVisible():
+            self._magic_screen.close()
+            return True
+        self.hide()
+        self.console.add_note("window hidden — Ctrl+Alt+J or \"hey jarvis\" brings it back")
+        return True
+
     def keyPressEvent(self, event) -> None:  # noqa: N802
         k = event.key()
         mod = event.modifiers()
         if k == Qt.Key.Key_Escape:
-            if self.voice.speaking:          # Esc interrupts speech first
-                self.voice.stop()
-                self.console.add_note("speech stopped")
-            elif self._console_open:
-                self.toggle_console(False)
-            else:
-                self.hide()
+            if not self.handle_escape():     # same decision as the app-wide filter
+                super().keyPressEvent(event)
         elif k == Qt.Key.Key_J and mod & Qt.KeyboardModifier.ControlModifier:
             self.toggle_console()
         elif k == Qt.Key.Key_Space and mod & Qt.KeyboardModifier.ControlModifier:
@@ -1411,6 +1626,22 @@ class MainWindow(QWidget):
             QGuiApplication.instance().quit()
         else:
             super().keyPressEvent(event)
+
+    def showEvent(self, event) -> None:  # noqa: N802
+        from ..ticker import ticker as _ticker
+        _ticker().set_paused(False)
+        self.console.refresh_activity()
+        super().showEvent(event)
+
+    def hideEvent(self, event) -> None:  # noqa: N802
+        """Hidden means hidden: no 30 fps repaint of a window nobody can see.
+
+        Stealth is the resting state, so this is the common case, and it was costing a
+        full animation tick 24 hours a day on a laptop.
+        """
+        from ..ticker import ticker as _ticker
+        _ticker().set_paused(True)
+        super().hideEvent(event)
 
     def resizeEvent(self, event) -> None:  # noqa: N802
         side = int(max(240, min(self.height() * 0.54, self.width() * 0.42, 450)))

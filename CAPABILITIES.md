@@ -393,6 +393,47 @@ unknown at build time, discovered at runtime.
 
 ---
 
+## Wave 25 — a brain in the box, the name JARVIS, and the step you can watch
+
+Four requests in one message: *"romba hang… task work aagutha nu theriya matiku…
+task process ena nu therinja nalla irukum… esc kodutha close aaga matiku… no local model
+detected nu varuthu, brain ah add pana solluthu, athayum oru bundle ah koduthudu… athu
+pesum pothu 'I am ARC' nu soluthu, 'I am JARVIS' nu sonna semaya irukum."*
+
+- **new `arcdesk/brain.py` + `widgets/brain_dialog.py`** — *the brain is now a bundle*.
+  A small local model (**Qwen2.5 1.5B**, 1066 MB, tool-capable; **0.5B**, 469 MB,
+  chat-only and labelled as such) downloaded from huggingface, run by
+  `llama-cpp-python[server]` **bound to 127.0.0.1:8010**, started by the app, and written
+  into the config so the next question uses it. Sizes are stated before the download,
+  Stop works, the verdict is honest, and **Lite keeps answering throughout** — a brain
+  that is not ready must never be a dead app. On the installed `.exe` it uses the same
+  private environment as the voice engine (a compiled app cannot import a package that
+  arrives later), and with no Python at all it says so in one sentence instead of hanging.
+  Reachable from the setup card ("no local model detected" now has a button on it) and
+  from Settings → Local AI.
+- **new `arcdesk/identity.py`** — the spoken name is **JARVIS**, one setting
+  (`ai.name`), used by the persona prompt, the Lite self-introduction, the first-run voice
+  test and the dashboard. The prompt says it as identity: *"Your name is JARVIS… never
+  'I am ARC'. Arc Desk is the window."* Editable in Settings → Local AI ("It calls itself:").
+- **the step on screen**: `Agent` now emits `step_started` / `step_finished` for the model
+  turn and for every tool, and the console keeps a **process strip** — `▸ tool: open_app`
+  becomes `✔ tool: open_app 0.3 s` in place, in order, for the current request. With the
+  seconds counter above it, "is it doing anything?" is answered twice, in two ways.
+- **Esc, belt and braces**: `handle_escape()` was already one ladder, but it relied on a
+  keyPressEvent and an event filter. It is now also an **`ApplicationShortcut` QShortcut**,
+  which Qt delivers even when a text field owns the focus — the exact case that made Esc
+  do nothing. The ladder: dialog → speech → running task → palette/console/holo →
+  hide the window → (already hidden) quit. `Ctrl+Alt+H` hides without touching the task.
+- **the dashboard stopped being half empty**: a new status card states, in three lines,
+  `BRAIN · JARVIS · Lite (offline, instant)`, `EARS · not ready (…)`, `VOICE · …`, using
+  the same wording as Settings (one function, `reply_voice_line(cfg)`), refreshed every
+  10 s so the TCP probe costs nothing.
+- **`tests/test_brain.py`** (7 sections): the name in the persona/Lite/intro, both models
+  and their sizes, packages-then-weights-then-server, the URL it writes into the config,
+  the no-Python case, the dialog's three verdicts, and the two places it is reachable
+  from. `tests/test_activity.py` gained the process strip and the application-wide Esc
+  shortcut.
+
 ## Wave 24 — white letters on a white box, and a model that was there all along
 
 Two things from one screenshot, and they were unrelated:
@@ -561,7 +602,7 @@ pananum."* Two voices, two questions — and until now only one of them had a bu
   install_clone.bat)"*. The question "why is the reply in a different voice?" can no longer
   be answered by guessing.
 - **`ai.voice_clone` is a switch you can reach**, not a key in a JSON file.
-- **66 tests.**
+- **67 tests.**
 - **the workflow was simplified** to install → build → zip → upload. A blocking test step
   had cost four builds; the installer is now always produced, with a portable zip as the
   fallback that cannot fail.

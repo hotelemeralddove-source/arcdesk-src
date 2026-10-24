@@ -20,11 +20,12 @@ import threading
 
 from PySide6.QtCore import QObject, Signal
 
+from .. import activity as _activity
 from .. import profile
 from . import lite, select, tools
 from .. import lang as langs
 from .llm import LLMClient, LLMError, Message, ToolCallFormatError
-from .persona import SYSTEM_PROMPT, machine_brief
+from .persona import machine_brief, system_prompt
 
 MAX_TOOL_ROUNDS = 4
 MAX_HISTORY = 12
@@ -90,6 +91,8 @@ class Agent(QObject):
     learned = Signal(str)                    # ARC learned a durable fact about you
     speak_partial = Signal(str)              # a sentence ready to be spoken now
     speak_end = Signal()                     # nothing more to say this turn
+    step_started = Signal(str)               # "tool: open_app" — now, on screen
+    step_finished = Signal(str, float)       # same label, and how long it took
     brain_changed = Signal(str)
 
     def __init__(self, cfg: dict, parent: QObject | None = None) -> None:
@@ -137,8 +140,10 @@ class Agent(QObject):
 
     # -- internals -------------------------------------------------------
     def _run(self, text: str) -> None:
+        act = _activity.activity()
         with self._busy:
             self.thinking.emit(True)
+            act.begin(text)
             try:
                 self._resolve_brain()
                 # "my name is Arun" becomes memory, not a message the model must re-read
@@ -155,7 +160,14 @@ class Agent(QObject):
                 elif self._fast_path(text):
                     self._run_lite(text)          # Lite already knew exactly what to do
                 else:
+                    # the model is the slowest thing in the app, so it gets a step of
+                    # its own on screen: "thinking" with a clock is not the same
+                    # experience as a blank window (the user's complaint)
+                    started_at = _activity.time.monotonic()
+                    self.step_started.emit("thinking · the model is reading it")
                     self._run_llm()
+                    self.step_finished.emit("thinking · the model is reading it",
+                                            _activity.time.monotonic() - started_at)
             except ToolCallFormatError as exc:
                 # the brain fumbled a tool call. Do not lose the request: try it
                 # offline through Lite, and say plainly what happened.
@@ -181,6 +193,8 @@ class Agent(QObject):
                     self.speak_end.emit()
                 except Exception:
                     pass
+                act.finish(ok=not act.cancelled(),
+                           why="" if not act.cancelled() else "you stopped it")
                 self.thinking.emit(False)
 
     def _resolve_brain(self) -> None:
@@ -258,7 +272,8 @@ class Agent(QObject):
             args = json.loads(call["function"]["arguments"] or "{}")
             out = self._execute(name, args)
             results.append(lite.summarise_tool_result(name, out, args))
-        final = spoken or " ".join(results) or "Done."
+        final = "Stopped." if _activity.activity().cancelled() else \
+            (spoken or " ".join(results) or "Done.")
         self.speak_partial.emit(final)
         self.reply.emit(final)
         return bool(calls)
@@ -272,7 +287,7 @@ class Agent(QObject):
         self.language = _code
         known = profile.summary()
         msgs = [Message(role="system",
-                        content=SYSTEM_PROMPT + "\n\n" + _style + "\n\n"
+                        content=system_prompt(self.cfg) + "\n\n" + _style + "\n\n"
                         + (known + "\n\n" if known else "")
                         + (self.context_fn() or ""))]
         msgs.extend(self._history[-MAX_HISTORY:])
@@ -374,9 +389,15 @@ class Agent(QObject):
 
     # -- shared tool execution with confirmation --------------------------
     def _execute(self, name: str, args: dict) -> str:
+        act = _activity.activity()
+        if act.cancelled():
+            return "stopped before running (you pressed Stop)"
         spec = tools.TOOLS.get(name)
         if spec is None:
             return f"ERROR: unknown tool '{name}'"
+        act.step(f"tool: {name}")
+        self.step_started.emit(f"tool: {name}")
+        began = _activity.time.monotonic()
         if spec.confirm:
             self.needs_confirm.emit(name, json.dumps(args))
             granted = self._confirm_event.wait(timeout=45)
@@ -386,8 +407,20 @@ class Agent(QObject):
                 self.tool_used.emit(name, json.dumps(args), out)
                 return out
         self.thinking.emit(True)
-        out = tools.call(name, args)
+        started = _activity.time.monotonic()
+        try:
+            out = tools.call(name, args)
+        except Exception as exc:                       # a tool must never kill the turn
+            act.note(f"{type(exc).__name__}")
+            out = f"ERROR: {type(exc).__name__}: {exc}"
+        took = _activity.time.monotonic() - started
+        if took >= 1.5:
+            # a genuinely slow tool is where "is it working?" gets asked — name it
+            act.note(f"slow {took:.1f} s")
         self.tool_used.emit(name, json.dumps(args), out)
+        self.step_finished.emit(f"tool: {name}", _activity.time.monotonic() - began)
+        if act.cancelled():
+            return out + "\n(you stopped the request after this ran)"
         return out
 
     def _trim(self) -> None:

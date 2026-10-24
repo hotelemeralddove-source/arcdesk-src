@@ -147,8 +147,15 @@ class WelcomeDialog(QDialog):
             brain_text = ("No local model detected — that is fine. ARC Lite answers "
                           "offline in about a millisecond, and you can add Ollama or "
                           "llama.cpp later in Settings → Brain.")
-        lay.addWidget(self._card("3 · WHAT THINKS?", brain_text,
-                                 [("Re-scan", self._rescan)]))
+        self.brain_text = brain_text
+        self.brain_btn = QPushButton("Add a brain…")
+        self.brain_btn.setToolTip("A small local model, downloaded and started from inside "
+                                  "the app — no account, no Ollama homework.")
+        self.brain_btn.clicked.connect(self.open_brain)
+        self._brain_card = self._card("3 · WHAT THINKS?", brain_text,
+                                      [("Re-scan", self._rescan), ("Add a brain…",
+                                                                   self.open_brain)])
+        lay.addWidget(self._brain_card)
 
         # ---- 4. start with your account -------------------------------
         from arcdesk import autostart as _autostart
@@ -263,8 +270,9 @@ class WelcomeDialog(QDialog):
 
     # --------------------------------------------------------------- actions
     def _test_voice(self) -> None:
-        line = ("All systems are green. Vanakkam macha — I am ARC, and this is my "
-                "voice on your machine.")
+        from .. import identity
+        line = ("All systems are green. Vanakkam macha — " +
+                identity.intro(self.cfg))
         if self.voice is None:
             self.status.setText("voice engine unavailable in this window")
             return
@@ -273,6 +281,12 @@ class WelcomeDialog(QDialog):
             self.status.setText("said: " + line[:46] + "…")
         except Exception as exc:
             self.status.setText(f"voice failed: {exc}")
+
+    def open_brain(self) -> None:
+        """The honest fix for "no local model detected" — inside setup, not homework."""
+        from .brain_dialog import BrainDialog
+        BrainDialog(self.cfg, self.theme_of_dialog(), parent=self).exec()
+        self._rescan()
 
     def open_ears(self) -> None:
         """The honest fix for a silent wake word — from inside setup, not a command line."""

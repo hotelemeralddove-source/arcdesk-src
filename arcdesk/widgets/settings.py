@@ -259,11 +259,12 @@ class SettingsDialog(QDialog):
         ]
         self.voice_status.setText("  ·  ".join(parts))
         # ...and the honest answer to "which voice will actually answer me?"
-        reply = self.reply_voice_line()
+        reply = self.reply_voice_line(self.cfg)
         if hasattr(self, "reply_note"):
-            self.reply_note.setText(reply)
+            self.reply_note.setText("Reply voice: " + reply)
 
-    def reply_voice_line(self) -> str:
+    @staticmethod
+    def reply_voice_line(cfg: dict | None = None) -> str:
         """One sentence naming the voice ARC will answer in, right now.
 
         Before this existed, the only way to find out was to make it speak and recognise
@@ -275,20 +276,19 @@ class SettingsDialog(QDialog):
             ref = clone.reference()
             chosen = voicelib.active_reply()
             if not ref:
-                return ("Reply voice: the system voice — no reply voice added yet "
-                        "(Settings → Voice → Voices…).")
-            if not self.cfg.get("ai", {}).get("voice_clone", True):
-                return ("Reply voice: the system voice — “use my voice for replies” is "
-                        "switched off (a clip of you is imported and kept).")
+                return ("the system voice — no reply voice added yet (Settings → Voice).")
+            if not (cfg or {}).get("ai", {}).get("voice_clone", True):
+                return ("the system voice — \"use my voice for replies\" is switched off "
+                        "(a clip of you is imported and kept).")
             ready = [k for k, v in clone.engines().items() if v.get("available")]
             if not ready:
-                return ("Reply voice: the system voice — a clip of you is imported, but no "
-                        "clone engine is installed (run install_clone.bat).")
+                return ("the system voice — a clip is imported, but no clone engine is "
+                        "installed (Settings → Voice → Get the reply-voice engine…).")
             who = f"“{chosen['name']}”" if chosen else "your recording"
-            return (f"Reply voice: {who}, spoken by {' / '.join(ready)} "
+            return (f"{who}, spoken by {' / '.join(ready)} "
                     f"({clone.analyse(ref)['seconds']:.1f} s reference).")
         except Exception as exc:                                     # noqa: BLE001
-            return f"Reply voice: could not check ({type(exc).__name__})."
+            return f"could not check ({type(exc).__name__})."
 
     @staticmethod
     def _module_ok(name: str) -> bool:
@@ -297,6 +297,12 @@ class SettingsDialog(QDialog):
             return True
         except Exception:
             return False
+
+    def open_brain_dialog(self) -> None:
+        """Needs this name: `open_brain` is already a signal on this dialog."""
+        from .brain_dialog import BrainDialog
+        BrainDialog(self.cfg, self.theme, parent=self).exec()
+        self._scan_backends()
 
     def open_ears(self) -> None:
         from .ears_dialog import EarsDialog
@@ -486,8 +492,23 @@ class SettingsDialog(QDialog):
         self.btn_scan = QPushButton("Scan for local AI backends")
         self.btn_scan.clicked.connect(self._scan_backends)
         head.addWidget(self.btn_scan)
+        self.btn_brain = QPushButton("Add a brain (local model)…")
+        self.btn_brain.setToolTip("Downloads a small model and runs it on this laptop — "
+                                  "no account, no separate Ollama install.")
+        self.btn_brain.clicked.connect(self.open_brain_dialog)
+        head.addWidget(self.btn_brain)
         head.addStretch(1)
         lay.addLayout(head)
+
+        # what the brain is called out loud: "I am JARVIS"
+        name_row = QHBoxLayout()
+        name_row.addWidget(QLabel("It calls itself:"))
+        self.ai_name = QLineEdit(str(self.cfg.get("ai", {}).get("name", "JARVIS")))
+        self.ai_name.setPlaceholderText("JARVIS")
+        self.ai_name.setToolTip("The name it introduces itself with — spoken, and in the "
+                                "persona it is given.")
+        name_row.addWidget(self.ai_name, 1)
+        lay.addLayout(name_row)
 
         self.scan_out = QPlainTextEdit()
         self.scan_out.setObjectName("scanOut")
@@ -607,6 +628,10 @@ class SettingsDialog(QDialog):
                     "your provider account is billed for the tokens you use.",
         }[cls_]
         self.cost_note.setText(text)
+
+    def _save_ai_name(self) -> None:
+        got = (self.ai_name.text() or "").strip()
+        self.cfg.setdefault("ai", {})["name"] = got or "JARVIS"
 
     def _scan_backends(self) -> None:
         from ..ai import backends as bk
@@ -770,6 +795,7 @@ class SettingsDialog(QDialog):
         self.port.setValue(int(wk.get("port", 8765)))
         self.command_seconds.setValue(float(wk.get("command_seconds", 7)))
         self.voice_on.setChecked(bool(ai.get("voice", True)))
+        self.ai_name.setText(str(ai.get("name") or "JARVIS"))
         self._refresh_voice_status()
 
         self.shadow.setChecked(bool(sh.get("enabled", True)))
@@ -883,6 +909,7 @@ class SettingsDialog(QDialog):
                     "will not start by itself. Everything else saved. On Windows this "
                     "is one per-user value; on other systems it may need a desktop entry.")
         self.cfg["autostart"] = autostart.is_enabled()
+        self._save_ai_name()
 
         config.save(self.cfg)
         self.applied.emit()

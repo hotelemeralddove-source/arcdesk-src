@@ -32,6 +32,7 @@ DEFAULTS: dict[str, Any] = {
         "refresh_min": 20,
     },
     "ai": {
+        "name": "JARVIS",          # what it calls itself out loud (Settings -> Brain)
         "enabled": True,
         "provider": "auto",      # auto | groq | gemini | openai | ollama | custom | lite
         "model": "",             # blank = provider default

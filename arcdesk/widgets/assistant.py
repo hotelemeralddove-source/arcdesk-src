@@ -8,7 +8,7 @@ from __future__ import annotations
 import html
 import time
 
-from PySide6.QtCore import Qt, Signal
+from PySide6.QtCore import Qt, QTimer, Signal
 from PySide6.QtWidgets import (
     QHBoxLayout, QLabel, QLineEdit, QPushButton, QTextBrowser, QVBoxLayout, QWidget,
 )
@@ -28,6 +28,7 @@ class AssistantConsole(QWidget):
     settings_requested = Signal()
     reset_requested = Signal()
     replay_requested = Signal()
+    stop_requested = Signal()
 
     def __init__(self, parent: QWidget | None = None) -> None:
         super().__init__(parent)
@@ -71,6 +72,41 @@ class AssistantConsole(QWidget):
             head.addWidget(b)
         lay.addLayout(head)
 
+        # ---- what is happening RIGHT NOW ---------------------------------
+        # The question this answers, in the user's words: "ena work nadakuthu nu
+        # therinja nalla irukum" — and "task assign pana work aagutha nu theriya
+        # matiku". So: the current step in words, and a seconds counter that keeps
+        # moving. A clock that advances is the difference between "working" and
+        # "wedged", and it costs one 150 ms timer.
+        live = QHBoxLayout()
+        live.setSpacing(8)
+        self.dot = QLabel("●")
+        self.dot.setObjectName("liveDot")
+        self.dot.setFixedWidth(12)
+        live.addWidget(self.dot)
+        self.live = QLabel("idle — nothing running")
+        self.live.setObjectName("liveLine")
+        self.live.setWordWrap(False)
+        live.addWidget(self.live, 1)
+        self.stop_btn = QPushButton("STOP")
+        self.stop_btn.setObjectName("stopBtn")
+        self.stop_btn.setFixedSize(58, 24)
+        self.stop_btn.setCursor(Qt.CursorShape.PointingHandCursor)
+        self.stop_btn.setToolTip("Stop the current request (Esc also works)")
+        self.stop_btn.setVisible(False)
+        self.stop_btn.clicked.connect(self.stop_requested.emit)
+        live.addWidget(self.stop_btn)
+        lay.addLayout(live)
+
+        # The step-by-step of the CURRENT request, kept in one line and updated in
+        # place: "▸ tool: open_app  ✔ tool: system_report 1.2 s". The transcript keeps
+        # the history; this answers "is it still going?" at a glance.
+        self.proc = QLabel("")
+        self.proc.setObjectName("procLine")
+        self.proc.setWordWrap(True)
+        lay.addWidget(self.proc)
+        self._steps: list[str] = []
+
         # ---- transcript -------------------------------------------------
         self.view = QTextBrowser()
         self.view.setObjectName("transcript")
@@ -79,6 +115,10 @@ class AssistantConsole(QWidget):
         self.view.setMinimumHeight(190)
         lay.addWidget(self.view, 1)
         self._last_arc = ""
+        self._busy = False
+        self._tick = QTimer(self)
+        self._tick.setInterval(150)
+        self._tick.timeout.connect(self.refresh_activity)
 
         # ---- suggestion chips -------------------------------------------
         chips = QHBoxLayout()
@@ -136,10 +176,67 @@ class AssistantConsole(QWidget):
         self.status.setText(text)
 
     def set_busy(self, busy: bool) -> None:
+        self._busy = bool(busy)
         self.send.setEnabled(not busy)
         self.send.setText("…" if busy else "SEND")
+        self.stop_btn.setVisible(bool(busy))
         if busy:
-            self.status.setText("THINKING…")
+            self.status.setText("WORKING")
+            self._tick.start()
+        else:
+            self._tick.stop()
+            self.status.setText("READY")
+        self.refresh_activity()
+
+    def refresh_activity(self) -> None:
+        """Draw whatever the activity record says, including elapsed seconds."""
+        from .. import activity as _activity
+        snap = _activity.activity().snapshot()
+        state = snap["state"]
+        if state == "idle":
+            self.live.setText("idle — nothing running")
+            self.dot.setProperty("state", "idle")
+        elif snap["busy"]:
+            self.live.setText(f"{snap['live'] or state}   ·   {snap['elapsed']:.1f} s")
+            self.dot.setProperty("state", state)
+        else:
+            self.live.setText(f"{state} in {snap['elapsed']:.1f} s")
+            self.dot.setProperty("state", state)
+        self.dot.style().unpolish(self.dot)
+        self.dot.style().polish(self.dot)
+
+    def begin_task(self, text: str) -> None:
+        """A new request: clear the process strip, keep the transcript."""
+        self._steps = []
+        self.proc.setText("")
+        self.proc.setVisible(True)
+
+    def step_running(self, label: str) -> None:
+        self._steps.append("▸ " + label)
+        self._render_steps()
+
+    def step_done(self, label: str, seconds: float) -> None:
+        # replace the running entry for this label with a finished one
+        want = "▸ " + label
+        mark = f"✔ {label} {seconds:.1f} s"
+        for i in range(len(self._steps) - 1, -1, -1):
+            if self._steps[i] == want:
+                self._steps[i] = mark
+                break
+        else:
+            self._steps.append(mark)
+        self._render_steps()
+
+    def _render_steps(self) -> None:
+        tail = self._steps[-6:]
+        self.proc.setText(("   ·   ".join(tail)) if tail else "")
+
+    def add_step(self, text: str) -> None:
+        """A finished step, kept in the transcript so the trail survives the request."""
+        self.view.append(f'<div class="row step"><div class="meta">STEP</div>'
+                         f'<div class="msg">{html.escape(text)}</div></div>')
+        bar = self.view.verticalScrollBar()
+        bar.setValue(bar.maximum())
 
     # -- transcript ------------------------------------------------------
     def _bubble(self, who: str, text: str, cls: str) -> None:
@@ -189,6 +286,8 @@ class AssistantConsole(QWidget):
             .arc .msg {{ color: {th.accent}; }}
             .tool .msg {{ color: {dim}; font-size: 10.5px; }}
             .note .msg {{ color: {dim}; font-style: italic; font-size: 10.5px; }}
+            .step .msg {{ color: {dim}; font-size: 10px; }}
+            .step .meta {{ font-size: 8px; letter-spacing: 1.4px; color: {dim}; }}
         """)
 
     def styles(self, th) -> str:
@@ -227,6 +326,20 @@ class AssistantConsole(QWidget):
                                   {QColor(th.accent).green()},{QColor(th.accent).blue()},0.30);
                                   border-radius: 10px; font-size: 9px; font-weight: 700; letter-spacing: 0.6px; }}
             QPushButton#micBtn:hover {{ color: {th.accent}; border-color: {th.accent}; }}
+            QLabel#liveLine {{ color: {dim}; font-size: 10px; letter-spacing: 0.8px; }}
+            QLabel#procLine {{ color: {dim}; font-size: 9.5px; letter-spacing: 0.4px; }}
+            QLabel#liveDot {{ color: {dim}; font-size: 11px; }}
+            QLabel#liveDot[state="thinking"] {{ color: {th.accent}; }}
+            QLabel#liveDot[state="tool"] {{ color: {th.accent}; }}
+            QLabel#liveDot[state="speaking"] {{ color: {th.accent}; }}
+            QLabel#liveDot[state="done"] {{ color: #6ede8a; }}
+            QLabel#liveDot[state="failed"] {{ color: #ef7a7a; }}
+            QLabel#liveDot[state="cancelled"] {{ color: #efc86a; }}
+            QPushButton#stopBtn {{ background: rgba(239,122,122,0.16); color: #ef9a9a;
+                                   border: 1px solid rgba(239,122,122,0.45);
+                                   border-radius: 8px; font-size: 9px;
+                                   font-weight: 700; letter-spacing: 1.2px; }}
+            QPushButton#stopBtn:hover {{ background: rgba(239,122,122,0.30); }}
             QPushButton#chip2 {{ background: rgba({QColor(th.accent).red()},
                                  {QColor(th.accent).green()},{QColor(th.accent).blue()},0.07);
                                  color: {dim}; border: 1px solid rgba({QColor(th.accent).red()},

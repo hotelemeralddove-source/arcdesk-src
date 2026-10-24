@@ -13,6 +13,15 @@ understand, instead of hallucinating.
 from __future__ import annotations
 
 import re
+
+def _who() -> str:
+    """The name this installation answers to (JARVIS unless changed in Settings)."""
+    try:
+        from .. import config, identity
+        return identity.name(config.load())
+    except Exception:
+        from ..identity import DEFAULT_NAME
+        return DEFAULT_NAME
 import uuid
 
 
@@ -267,7 +276,7 @@ def respond(text: str) -> tuple[str, list[dict]]:
         return ("ARC Lite online. Ask me to open an app, check the system, set a timer, "
                 "or switch modes.", [])
     if "who are you" in low or "your name" in low or "nee yaaru" in low:
-        return ("I am ARC, the assistant inside Arc Desk. Right now I am running in Lite "
+        return (f"I am {_who()}, the assistant inside Arc Desk. Right now I am running in Lite "
                 "mode, which is offline and rule-based. Connect a brain to get full "
                 "conversation.", [])
 
