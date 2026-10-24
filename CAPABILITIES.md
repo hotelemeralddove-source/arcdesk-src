@@ -393,6 +393,35 @@ unknown at build time, discovered at runtime.
 
 ---
 
+## Wave 26 — one file that answers "what is missing on my laptop?"
+
+Asked for directly: *"arcdesk laptop la run pana missing ah irukura things, then athula
+again add pana download pana vendiya things… oru file la kodu… sandbox la run pana pothu
+yethu irunthuchu, appadiyae intha ArcDesk.exe layum irukanum."*
+
+- **new `tools/parity.py` → `WHATS_INCLUDED.md`** — three lists that are never typed by
+  hand: **(A)** what is already inside the `.exe` (every `arcdesk` module, the two helper
+  scripts carried as data, and each library with a live *"can this machine import it?"*
+  rather than a filename check), **(B)** what is downloaded after install — seven rows,
+  each with its real size, the exact folder it lands in, the button that fetches it and
+  the feature it unlocks, **(C)** what deliberately never ships (torch/IndicF5, XTTS,
+  llama.cpp + GGUF) with the reason and the private-environment route used instead. Plus
+  a table of what the app writes to `%APPDATA%\\ArcDesk`, and the five first-run steps.
+- **the parity check is a measurement, not a promise**: the document states whether the
+  build installs each hard dependency, whether the voice libraries are attempted
+  separately, and whether the spec collects the wake engine at all — read out of
+  `.github/workflows/build-windows.yml` and `packaging/arcdesk.spec` at generation time.
+- **one honest subtlety found while writing it**: `sounddevice` is *installed* in the
+  sandbox but cannot *import* there (no PortAudio on Linux), while on Windows the wheel
+  carries its own DLL. The generator reports "yes, but import fails here (OSError)"
+  instead of a bare "yes", because that distinction is the whole reason a build can look
+  complete and still be silent.
+- **new `tests/test_parity.py`** (6 sections): the document is byte-identical to a fresh
+  generation (`--check`), the module count is the real count and comes from
+  `collect_submodules`, both helper scripts are in the spec's datas, the wake engine is
+  collected, every non-shipped item has a size and a destination, and the sandbox column
+  distinguishes installed from importable.
+
 ## Wave 25 — a brain in the box, the name JARVIS, and the step you can watch
 
 Four requests in one message: *"romba hang… task work aagutha nu theriya matiku…
@@ -602,7 +631,7 @@ pananum."* Two voices, two questions — and until now only one of them had a bu
   install_clone.bat)"*. The question "why is the reply in a different voice?" can no longer
   be answered by guessing.
 - **`ai.voice_clone` is a switch you can reach**, not a key in a JSON file.
-- **67 tests.**
+- **68 tests.**
 - **the workflow was simplified** to install → build → zip → upload. A blocking test step
   had cost four builds; the installer is now always produced, with a portable zip as the
   fallback that cannot fail.

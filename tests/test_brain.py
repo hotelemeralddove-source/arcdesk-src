@@ -86,13 +86,14 @@ import arcdesk.engines as engines_mod  # noqa: E402
 engines_mod._run = fake_run            # the seam the brain uses
 
 DOWNLOADS: list[str] = []
+brain.MIN_MODEL_BYTES = 1024        # keep the fake small: a test must not fill a disk
 
 
 def fake_download(key=brain.DEFAULT_MODEL, on_line=None, cancel=None):
     DOWNLOADS.append(key)
     p = brain.gguf_path(key)
     p.parent.mkdir(parents=True, exist_ok=True)
-    p.write_bytes(b"\0" * (60 * 1024 * 1024))     # big enough to count as present
+    p.write_bytes(b"\0" * 4096)                   # big enough to count as present
     if on_line:
         on_line("  saved (fake)")
     return {"ok": True, "path": str(p), "why": ""}

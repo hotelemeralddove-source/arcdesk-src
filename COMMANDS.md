@@ -51,6 +51,7 @@ sentence and points at the other two.
 | **Settings → System → "Visual effects"** | follow the mode / full / reduced / off — the one control that changes how much work a frame is |
 | **Settings → Voice → "Voices…"** | two lists: who may command ARC, and which voice it answers in (any clip — yours, or someone else's) |
 | **Setup card → "Add a brain…"** / **Settings → Local AI → "Add a brain…"** | downloads and starts a local model (Qwen2.5 1.5B, 1066 MB, tool-capable) on 127.0.0.1 — no account, no Ollama homework |
+| `python tools/parity.py` | regenerates **WHATS_INCLUDED.md** — what ships, what to download, what never ships (`--check` verifies it is current) |
 | **Settings → Local AI → "It calls itself:"** | the name it answers to — **JARVIS** by default |
 | **Settings → Voice → "Get the ears ready…"** | ticks or crosses the four things "hey jarvis" needs, and downloads the 70 MB that can be fetched in-app |
 | **Setup card → "Get the ears ready (70 MB)…"** | the same fix, offered right where the card says the machine cannot listen |

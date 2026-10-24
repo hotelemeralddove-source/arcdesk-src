@@ -54,6 +54,9 @@ MODELS: dict[str, dict] = {
     },
 }
 DEFAULT_MODEL = "small"
+# A partly-downloaded file must never count as a model. (A module constant, not a
+# literal, so the test can shrink it instead of filling a disk with a 60 MB fake.)
+MIN_MODEL_BYTES = 50 * 1024 * 1024
 
 
 # --------------------------------------------------------------------------- where
@@ -71,7 +74,7 @@ def gguf_path(key: str = DEFAULT_MODEL) -> Path:
 def model_present(key: str = DEFAULT_MODEL) -> bool:
     p = gguf_path(key)
     try:
-        return p.is_file() and p.stat().st_size > 50 * 1024 * 1024
+        return p.is_file() and p.stat().st_size > MIN_MODEL_BYTES
     except Exception:
         return False
 
