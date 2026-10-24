@@ -1,0 +1,14 @@
+START HERE — 2 steps
+====================
+
+STEP 1
+  Extract this zip into your project folder (the one with run.py) -> Replace -> Yes
+  Open GitHub Desktop -> Summary: fresh build -> "Commit to main" -> "Push origin"
+
+STEP 2
+  Wait ~10 minutes. Repo -> Actions -> newest run -> Artifacts -> "ArcDesk"
+  It contains ArcDeskSetup.exe (double-click to install).
+  If only ArcDesk-portable.zip is there: unzip it and double-click ArcDesk.exe.
+  No installer needed, no admin, nothing to configure.
+
+That is all. No logs to read this time.
