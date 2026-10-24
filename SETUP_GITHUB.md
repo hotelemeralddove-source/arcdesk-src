@@ -47,7 +47,7 @@ The job does, in order:
 
 | step | what it proves |
 |---|---|
-| `python tests/run_all.py` | all **60 tests** pass — a failing test stops the build |
+| `python tests/run_all.py` | all **69 tests** pass — a failing test stops the build |
 | `packaging\build_all.bat` | both executables + the installer are produced |
 | `ArcDesk.exe --version` / `--doctor` | the **frozen** program actually starts and checks itself |
 | SHA-256 of the installer | the file you download can be verified |
@@ -109,5 +109,5 @@ first run. If Inno Setup is missing it says so and points at
 | Inno Setup producing the Setup | needs Inno Setup 6 on Windows |
 | "hey jarvis" hearing your actual voice | needs a microphone and the speech model |
 
-Everything else — 60 tests, 88 tools, the packaging pre-flight, the built bundle
+Everything else — 62 tests, 88 tools, the packaging pre-flight, the built bundle
 (298.5 MB → 86.4 MB) — was executed, not assumed.

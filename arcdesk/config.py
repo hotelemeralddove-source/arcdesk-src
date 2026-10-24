@@ -81,6 +81,24 @@ DEFAULTS: dict[str, Any] = {
     # the desktop. They used to be ON by default, and the user's verdict on that was
     # blunt: "default ah desktop la floating icons varuthu". A first install should look
     # like nothing at all until asked; Settings -> Look turns them on.
+    # Cinematic sound: generated in-app (arcdesk/sfx.py), one short cue per moment.
+    # ON by default because it was asked for; every cue is one switch away from
+    # silence, and a machine with no audio device simply plays nothing.
+    "sfx": {
+        "enabled": True,
+        "volume": 0.55,
+    },
+    # How it talks to you: "Hi commander", "Thank you, commander", a task-related
+    # acknowledgement, and a progress line only when the request is genuinely slow.
+    "companion": {
+        "enabled": True,
+        "honorific": "commander",
+        "greet": True,
+        "farewell": True,
+        "acks": True,
+        "progress": True,
+        "announce_done": False,
+    },
     "charms": {
         "enabled": False,
         "user_choice": False,      # True once a person has actually toggled them

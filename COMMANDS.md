@@ -95,6 +95,53 @@ The wake word is checked the same way it always was; with **voice lock** on, the
 
 ---
 
+## 0c. The cinematic cues, and the companion voice
+
+Seven short cues, **generated inside the app on first launch** (0.15 s, ~90 KB total,
+no download, no licence, no audio library — stdlib `wave` + maths only). They live in
+`%APPDATA%\ArcDesk\sfx\`.
+
+| When | Cue | Length |
+|---|---|---|
+| "hey jarvis" is heard | `wake` | 1.45 s |
+| the window opens / magic mode begins | `magic_begin` | 1.50 s |
+| magic mode closes, the app hides or quits | `magic_end` | 1.20 s |
+| a task starts being processed | `task_start` | 0.28 s |
+| the task finishes | `task_done` | 0.90 s |
+| the task fails | `task_failed` | 0.55 s |
+| a button is pressed (charms) | `click` | 0.12 s |
+
+The phrases that make it a companion rather than a beep — all spoken **in your cloned
+voice**, because they go through the same reply engine as everything else:
+
+| Moment | It says |
+|---|---|
+| "hey jarvis" | **"Hi commander."** |
+| you say bye / it is closing | **"Thank you, commander."** |
+| "open notepad" | "Opening Notepad, commander." |
+| "close chrome" | "Closing Chrome, commander." |
+| "what is my cpu usage" | "Checking the machine, commander." |
+| "set a timer for 10 minutes" | "Setting that up, commander." |
+| "take a screenshot" | "Capturing the screen, commander." |
+| "search for cheap flights" | "Searching, commander." |
+| anything else it recognises as work | "On it, commander." |
+| a question it has to think about | "Let me think about that, commander." |
+| a job still running after 1.2 s | "Still on it, commander." (then rotates) |
+| the job finishes / fails | a chime — it does **not** narrate (off by choice) |
+
+| Command | What it does |
+|---|---|
+| **Settings → Sound → "Cinematic sound"** | on/off for all seven cues |
+| **Settings → Sound → volume slider + "Hear one"** | set the level, then actually hear it |
+| **Settings → Sound → "Companion voice"** | on/off for the spoken lines above |
+| **Settings → Sound → "It calls you:"** | the honourific — `commander`, `sir`, your name, or blank to drop it |
+| **Settings → Sound → "Preview the lines"** | every line, in order, before you commit |
+
+Nothing here blocks the app: a cue is played on a daemon thread, a missing audio
+device is swallowed silently, and a slow speech engine cannot delay the close.
+
+---
+
 ## 1. Drawing — the thing you asked about
 
 | You say | What happens | Needs |

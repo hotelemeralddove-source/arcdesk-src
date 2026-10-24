@@ -16,7 +16,7 @@ from PySide6.QtCore import Qt, Signal
 from PySide6.QtWidgets import (
     QCheckBox, QComboBox, QDialog, QDoubleSpinBox, QFileDialog, QFormLayout,
     QHBoxLayout, QLabel, QLineEdit, QMessageBox, QPlainTextEdit, QPushButton,
-    QScrollArea, QSpinBox, QTabWidget, QVBoxLayout, QWidget,
+    QScrollArea, QSlider, QSpinBox, QTabWidget, QVBoxLayout, QWidget,
 )
 
 from .. import autostart, config
@@ -172,6 +172,44 @@ class SettingsDialog(QDialog):
         btn_row.addWidget(install)
         btn_row.addStretch(1)
         form.addRow(btn_row)
+
+        form.addRow(_heading("CINEMATIC SOUND & A COMPANION VOICE"))
+        self.sfx_on = QCheckBox("Cinematic cues — open bloom, task tick, completion chime")
+        self.sfx_on.setToolTip("Short cues generated in the app itself: no download, no "
+                               "licence, and one switch away from silence.")
+        form.addRow(self.sfx_on)
+        vol_row = QHBoxLayout()
+        vol_row.addWidget(QLabel("Volume"))
+        self.sfx_volume = QSlider(Qt.Orientation.Horizontal)
+        self.sfx_volume.setRange(0, 100)
+        self.sfx_volume.setFixedWidth(180)
+        self.sfx_volume.setToolTip("Applies to the cues only — the reply voice has its own "
+                                   "volume in Windows.")
+        vol_row.addWidget(self.sfx_volume)
+        self.sfx_test = QPushButton("Hear one")
+        self.sfx_test.clicked.connect(lambda: __import__("arcdesk.sfx", fromlist=["sfx"]).play(
+            "task_done", {"sfx": {"enabled": True,
+                                  "volume": self.sfx_volume.value() / 100}}))
+        vol_row.addWidget(self.sfx_test)
+        vol_row.addStretch(1)
+        form.addRow(vol_row)
+
+        self.companion_on = QCheckBox("Talk to me like a person — \"Hi commander\", "
+                                      "a task-related acknowledgement, \"Thank you\"")
+        form.addRow(self.companion_on)
+        hon = QHBoxLayout()
+        hon.addWidget(QLabel("Call me"))
+        self.honorific = QLineEdit()
+        self.honorific.setPlaceholderText("commander")
+        self.honorific.setFixedWidth(160)
+        hon.addWidget(self.honorific)
+        self.companion_preview = QPushButton("Preview the lines")
+        self.companion_preview.clicked.connect(self._preview_companion)
+        hon.addWidget(self.companion_preview)
+        hon.addStretch(1)
+        form.addRow(hon)
+        self.companion_note = _note("")
+        form.addRow(self.companion_note)
 
         form.addRow(_heading("WHO MAY COMMAND IT"))
         self.lock_on = QCheckBox("Only my voice may command ARC on this computer")
@@ -629,6 +667,13 @@ class SettingsDialog(QDialog):
         }[cls_]
         self.cost_note.setText(text)
 
+    def _preview_companion(self) -> None:
+        from .. import companion_voice
+        cfg = {"companion": {"enabled": True,
+                             "honorific": self.honorific.text().strip() or "commander"}}
+        lines = companion_voice.phrases(cfg)
+        self.companion_note.setText("  ·  ".join(f"“{v}”" for v in lines.values()))
+
     def _save_ai_name(self) -> None:
         got = (self.ai_name.text() or "").strip()
         self.cfg.setdefault("ai", {})["name"] = got or "JARVIS"
@@ -796,6 +841,12 @@ class SettingsDialog(QDialog):
         self.command_seconds.setValue(float(wk.get("command_seconds", 7)))
         self.voice_on.setChecked(bool(ai.get("voice", True)))
         self.ai_name.setText(str(ai.get("name") or "JARVIS"))
+        sfc = self.cfg.get("sfx", {})
+        self.sfx_on.setChecked(bool(sfc.get("enabled", True)))
+        self.sfx_volume.setValue(int(round(float(sfc.get("volume", 0.55)) * 100)))
+        comp = self.cfg.get("companion", {})
+        self.companion_on.setChecked(bool(comp.get("enabled", True)))
+        self.honorific.setText(str(comp.get("honorific") or "commander"))
         self._refresh_voice_status()
 
         self.shadow.setChecked(bool(sh.get("enabled", True)))
@@ -910,6 +961,11 @@ class SettingsDialog(QDialog):
                     "is one per-user value; on other systems it may need a desktop entry.")
         self.cfg["autostart"] = autostart.is_enabled()
         self._save_ai_name()
+        self.cfg.setdefault("sfx", {}).update(enabled=self.sfx_on.isChecked(),
+                                              volume=self.sfx_volume.value() / 100)
+        self.cfg.setdefault("companion", {}).update(
+            enabled=self.companion_on.isChecked(),
+            honorific=(self.honorific.text().strip() or "commander"))
 
         config.save(self.cfg)
         self.applied.emit()

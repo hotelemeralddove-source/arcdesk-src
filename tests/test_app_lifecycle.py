@@ -36,6 +36,23 @@ def pump(app, seconds=0.4):
     app.processEvents()
 
 
+def pump_until(app, cond, seconds=3.0) -> bool:
+    """Wait for something the app does *after* it finishes speaking.
+
+    Saying goodbye is not instant any more: it plays the closing cue and speaks
+    "Thank you, commander." before it hides or quits, so a fixed 0.3 s pump is a
+    race with the sentence. Pump until the effect lands, or give up loudly.
+    """
+    waited = 0.0
+    while waited < seconds:
+        app.processEvents()
+        if cond():
+            return True
+        pump(app, 0.05)
+        waited += 0.05
+    return cond()
+
+
 def make_window(app, bye_action: str) -> MainWindow:
     cfg = config.load()
     cfg["mode"] = "chill"
@@ -65,7 +82,8 @@ def main() -> int:
     pump(app, 0.3)
     active_before = win.magic_active
     win.exit_magic()
-    pump(app, 0.3)
+    pump_until(app, lambda: not win.isVisible())
+    pump(app, 0.2)
     hide_ok = active_before and not win.magic_active and not win.isVisible()
     print(f"1) bye_action=hide  : magic {active_before}->{win.magic_active}, "
           f"window hidden={not win.isVisible()}  {'OK' if hide_ok else 'FAIL'}")
@@ -114,7 +132,8 @@ def main() -> int:
         win.enter_magic()
         pump(app, 0.2)
         win.exit_magic()
-        pump(app, 0.3)
+        pump_until(app, lambda: bool(spawned), seconds=4.0)
+        pump(app, 0.2)
 
         launcher_cmd = spawned[0] if spawned else []
         has_launcher = any("--launcher-app" in str(a) for a in launcher_cmd)

@@ -22,7 +22,7 @@ from PySide6.QtWidgets import (
     QStackedWidget, QVBoxLayout, QWidget,
 )
 
-from .. import config, guard
+from .. import companion_voice, config, guard, sfx
 from ..ai import tools
 from ..ai.mcp import MCPManager
 from ..ai.agent import Agent
@@ -238,6 +238,14 @@ class MainWindow(QWidget):
         self._day_timer.start()
         self._guard_reason = ""
         self._status_checked = 0.0        # throttles the TCP probe in the status card
+        # The acknowledgement is only spoken when a request is genuinely slow (1.2 s).
+        # A Lite answer in 4 ms does not need "on it, commander" in front of it.
+        self._ack_timer = QTimer(self)
+        self._ack_timer.setSingleShot(True)
+        self._ack_timer.setInterval(1200)
+        self._ack_timer.timeout.connect(self._say_ack)
+        self._pending_request = ""
+        self._opened_at = 0.0            # the last time ARC said hello (see _cinematic_open)
 
         self._heard.connect(self._on_heard)
         self._mic_state.connect(self._on_mic_state)
@@ -755,10 +763,85 @@ class MainWindow(QWidget):
         self.companion.set_state(THINKING)
         self.agent.ask(text)
 
+    def say(self, line: str) -> None:
+        """Speak a companion line through the reply voice — never raises, never waits."""
+        if not (line or "").strip():
+            return
+        try:
+            self.voice.speak(line)
+            self.console.add_note("JARVIS · " + line)
+        except Exception as exc:                       # noqa: BLE001
+            self.console.add_note(f"VOICE · could not speak ({type(exc).__name__})")
+
+    def _cinematic_open(self) -> None:
+        """The beat when ARC opens, then the hello — once per opening.
+
+        Two doors lead here: the wake word, and pressing the magic button. They can
+        land within a second of each other, and the guard is what keeps that one cue
+        and one sentence instead of a stutter. That was the bug: launched by hand,
+        `enter_magic()` never passed through `awaken()`, so the opening beat and the
+        greeting simply did not happen — the app opened in silence.
+        """
+        now = time.monotonic()
+        if now - self._opened_at < 2.5:
+            return
+        self._opened_at = now
+        sfx.play("magic_begin", self.cfg)
+        # the greeting lands after the cinematic, not over it
+        QTimer.singleShot(420, self.greet)
+
+    def greet(self) -> None:
+        """The line the whole thing is judged by: "Hi commander", in the reply voice."""
+        if not companion_voice._ok(self.cfg, "greet"):   # noqa: SLF001
+            return
+        # the exact line that was asked for, every time: "Hi commander." A wake word
+        # that answers differently each morning is a slot machine, not a companion.
+        self.say(companion_voice.greeting(self.cfg))
+
+    def _say_ack(self) -> None:
+        """Fires only if the request is still running 1.2 s later."""
+        from .. import activity as _activity
+        if not _activity.activity().busy:
+            return
+        self.say(companion_voice.ack(self.cfg, self._pending_request))
+
+    def farewell_and_close(self) -> None:
+        """Say "Thank you, commander" *before* the app goes away, not after.
+
+        Quitting immediately would cut the sentence off — which is worse than saying
+        nothing, because it sounds like a fault. So: cue, line, then the action.
+        """
+        sfx.play("magic_end", self.cfg)
+        line = companion_voice.farewell(self.cfg) \
+            if companion_voice._ok(self.cfg, "farewell") else ""   # noqa: SLF001
+        if line:
+            self.say(line)
+            QTimer.singleShot(int(900 + 55 * len(line)), self._apply_bye_action)
+        else:
+            self._apply_bye_action()
+
     def _on_thinking(self, busy: bool) -> None:
         self.console.set_busy(busy)
         if busy:
             self.console.begin_task("")
+            sfx.play("task_start", self.cfg)
+            self._pending_request = getattr(self.agent, "_last_request", "") or ""
+            if companion_voice._ok(self.cfg, "acks"):        # noqa: SLF001
+                self._ack_timer.start()
+        else:
+            self._ack_timer.stop()
+            from .. import activity as _activity
+            act = _activity.activity()
+            if act.cancelled():
+                sfx.play("task_failed", self.cfg, min_gap=0.3)
+            elif act.state == "failed":
+                sfx.play("task_failed", self.cfg, min_gap=0.3)
+                if companion_voice._ok(self.cfg, "announce_done"):   # noqa: SLF001
+                    self.say(companion_voice.done(self.cfg, ok=False))
+            else:
+                sfx.play("task_done", self.cfg)
+                if companion_voice._ok(self.cfg, "announce_done"):   # noqa: SLF001
+                    self.say(companion_voice.done(self.cfg))
         if not busy:
             # After the fact, show what actually ran — so "what did it do?" never
             # needs a log file. Skipped when everything happened in a blink.
@@ -947,6 +1030,7 @@ class MainWindow(QWidget):
         self._magic_screen.command.connect(self._magic_command)
         self._magic_screen.app_requested.connect(self._magic_app)
         self.magic_active = True
+        self._cinematic_open()          # hidden when the wake word already said it
 
         self.hide()
         self.overlay.hide()
@@ -973,7 +1057,10 @@ class MainWindow(QWidget):
             self._holo_window.deleteLater()
             self._holo_window = None
         self.console.add_note("MAGIC · " + detail)
-        self._apply_bye_action()
+        # The way out gets the same treatment as the way in: a cue, "Thank you,
+        # commander", and only then whatever "close" means in settings. Before this,
+        # leaving magic mode was silent and instant — which felt like a crash.
+        self.farewell_and_close()
 
     def _apply_bye_action(self) -> None:
         """What the application itself does once the screen is back to normal.
@@ -1263,6 +1350,7 @@ class MainWindow(QWidget):
         """Voice said the word: take the screen over, then land in the app."""
         if self._awakening is not None:
             return
+        self._cinematic_open()
         self._pre_awaken_shown = self.isVisible()
         self.show()
         self.raise_()
@@ -1393,6 +1481,7 @@ class MainWindow(QWidget):
         self._on_wake()
 
     def _on_wake(self) -> None:
+        sfx.play("wake", self.cfg)
         self.console.set_status("listening…")
         if self.magic_active:
             self._magic_screen and self._magic_screen.set_status("ALREADY ACTIVE")
@@ -1414,8 +1503,8 @@ class MainWindow(QWidget):
             self.exit_magic()
         else:
             self.console.add_note("MAGIC · exit phrase heard (magic mode was not active)")
-            # …and then do what the user asked for: close, hide or quit, per settings.
-            self._apply_bye_action()
+            # "Thank you, commander" first, then close/hide/quit — per settings.
+            self.farewell_and_close()
 
     def _on_wake_command(self, text: str) -> None:
         self.console.add_note(f'HEARD · "{text}"')

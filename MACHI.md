@@ -326,7 +326,7 @@ ellathaiyum ready-a vachirukken: `arcdesk-src.zip`, `.github/workflows/build-win
 5. ~10 nimisham kazhichu → artifact **`ArcDeskSetup`** download pannu
 6. Adhu **`ArcDeskSetup.exe`** — double-click, no admin, no Python, no PATH
 
-Anga GitHub-in Windows machine-la: 60 tests odum → rendu exe build aagum → frozen
+Anga GitHub-in Windows machine-la: 61 tests odum → rendu exe build aagum → frozen
 `ArcDesk.exe --doctor` smoke test aagum → appuram dhaan artifact upload aagum. So
 **odina build dhaan** un kaiyila varum, summa "build aachu" nu ila.
 
@@ -412,7 +412,7 @@ sollum ("0.0 GB" illa). Ithu un feature-a nambi vechirukkum idam — adhaan fix.
 
 | | |
 |---|---|
-| `tests/run_all.py` | **60/60 pass** (75 s) |
+| `tests/run_all.py` | **69/69 pass** (81 s) |
 | `tools/crosscheck.py` | **54 proven · 0 failed** · 4 need Windows hardware |
 | `tools/packaging.py` | 72 checks · 0 failed |
 | `gen_tools_doc --check` | 88 tools · 0 mismatch |
@@ -785,6 +785,6 @@ Naan kekkuradhu easy dhaan — Tanglish, English, Tamil, mix — ellam.
 4. **"I do not know"** is a complete answer, and it comes with the next step.
 
 Everything on this page is enforced by `tests/test_coach.py`, `tests/test_screenhelp.py`,
-`tests/test_world.py`, `tests/test_playback.py`, `tests/test_inside.py`, `tests/test_pchealth.py` and
-`tests/test_docs.py` — 60 tests, one command:
+`tests/test_world.py`, `tests/test_playback.py`, `tests/test_inside.py`, `tests/test_pchealth.py`,
+`tests/test_cinematic.py` and `tests/test_docs.py` — 69 tests, one command:
 `python tests/run_all.py`.

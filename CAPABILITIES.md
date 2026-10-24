@@ -631,7 +631,32 @@ pananum."* Two voices, two questions — and until now only one of them had a bu
   install_clone.bat)"*. The question "why is the reply in a different voice?" can no longer
   be answered by guessing.
 - **`ai.voice_clone` is a switch you can reach**, not a key in a JSON file.
-- **68 tests.**
+- **cinematic cues, generated not downloaded**: seven short WAVs (`wake`, `magic_begin`,
+  `magic_end`, `task_start`, `task_done`, `task_failed`, `click`) written by `arcdesk/sfx.py`
+  in **0.15 s** into `%APPDATA%\ArcDesk\sfx\`, ~90 KB total — no audio library, no licence.
+  Playback is on a daemon thread with a per-cue `min_gap`, so four tools finishing in one
+  second chime once instead of sounding like a pinball machine, and a missing sound card
+  cannot raise into the app.
+- **a companion voice**: `arcdesk/companion_voice.py` — "Hi commander." on the wake word,
+  "Thank you, commander." on the way out, and a task-related acknowledgement
+  ("Opening Notepad, commander.", "Checking the machine, commander.") instead of a generic
+  "OK". The honourific is a setting (`commander` by default, blank to drop it), and the
+  acknowledgement is only spoken if the task is still running after **1.2 s** — a 4 ms Lite
+  answer gets no chatter over it.
+- **opened by hand is not opened in silence**: both doors into magic mode (the wake word
+  and the magic button) run one guarded opener, so there is a beat and a "Hi commander"
+  either way, and never twice if the two land in the same second. Before this, launching
+  without the wake word had no cue and no greeting at all.
+- **the goodbye is spoken before the close**, not cut off by it: `QTimer.singleShot(900 +
+  55 × characters)` ms, so the sentence finishes and then the app hides or quits.
+- **Settings → Sound** holds the switches, a volume slider with a "Hear one" button, the
+  honourific field and a "Preview the lines" button — nothing about the sound is a
+  config-file secret.
+- **new `tests/test_cinematic.py`** (8 sections): the seven cues render small and fast, the
+  whole set is mono 16-bit at 22 kHz, a play never blocks or raises, `min_gap` and the
+  volume-keyed cache behave, every line is the exact requested sentence, the honourific
+  works, the order is line-then-close, and the Settings switches exist and are saved.
+- **69 tests.**
 - **the workflow was simplified** to install → build → zip → upload. A blocking test step
   had cost four builds; the installer is now always produced, with a portable zip as the
   fallback that cannot fail.

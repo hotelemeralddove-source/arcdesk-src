@@ -141,6 +141,7 @@ class Agent(QObject):
     # -- internals -------------------------------------------------------
     def _run(self, text: str) -> None:
         act = _activity.activity()
+        self._last_request = text          # the companion ack quotes this
         with self._busy:
             self.thinking.emit(True)
             act.begin(text)

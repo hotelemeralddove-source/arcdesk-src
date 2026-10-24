@@ -1,6 +1,6 @@
 # ARC DESK — honest re-evaluation
 
-**Date:** 23 October 2026 · **Build:** 88 tools, 60 tests · measured in this sandbox (Linux, 2 CPU,
+**Date:** 23 October 2026 · **Build:** 88 tools, 69 tests · measured in this sandbox (Linux, 2 CPU,
 2 GB RAM, no microphone, no display attached). Everything below is either something I ran just
 now or something I explicitly could **not** run and why.
 
@@ -125,7 +125,7 @@ that sentence has changed.**
 ## 7. Reproduce every number above
 
 ```bat
-python tests\run_all.py                 :: 60 tests
+python tests\run_all.py                 :: 69 tests
 python tools\capability.py              :: 88 tools · 65 live · 6 guarded · 0 failed
 python tools\bench.py                   :: 80.5 MB RSS · 1.32 % CPU
 python tools\live.py --repeat 3         :: real model, real tool calls
