@@ -272,7 +272,6 @@ def on(path: str) -> bool:
 
 
 EXPECTED_ON = [
-    ("shadow.enabled", "the desk overlay exists"),
     ("shadow.tray", "a visible handle in the tray"),
     ("shadow.hotkeys", "Ctrl+Alt+J and Ctrl+Alt+Q work"),
     ("shadow.preserve_windows", "your open windows survive magic mode"),
@@ -298,6 +297,10 @@ EXPECTED_OFF = [
     # "default ah desktop la floating icons varuthu" — the user's complaint. The setting
     # still exists and still works; it is simply not switched on for you on day one.
     ("charms.enabled", "nothing floats on the desktop until you ask"),
+    # It used to be ON by default, which meant a fresh install opened with no window,
+    # no card and only a tray icon: "installed, but it does not work". Stealth is what
+    # the Windows boot entry asks for with --shadow, one launch at a time.
+    ("shadow.enabled", "a double-click on the icon must show the window"),
     ("wake.enabled", "a microphone nobody asked for is never opened"),
     ("wake.voice_lock", "needs you to enrol first"),
     ("weather.enabled", "no network calls until you ask"),

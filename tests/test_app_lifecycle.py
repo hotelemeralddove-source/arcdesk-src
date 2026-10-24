@@ -194,6 +194,40 @@ def main() -> int:
         paths.FROZEN = saved
     ok &= script_ok
 
+
+    print("\n7. one Arc Desk at a time — and it means it on Windows too")
+    import socket as _socket
+
+    import arcdesk.instance as _inst
+
+    class _FakeSock:
+        def __init__(self):
+            self.calls = []
+
+        def setsockopt(self, level, opt, value):
+            self.calls.append((level, opt, value))
+
+    fake = _FakeSock()
+    _inst._EXCLUSIVE = 0x4          # SO_EXCLUSIVEADDRUSE's real value, on a platform without it
+    applied = _inst.lock_socket_options(fake, platform="win32")
+    win_ok = applied == ["SO_EXCLUSIVEADDRUSE"] and not [
+        c for c in fake.calls if c[1] == _socket.SO_REUSEADDR]
+    print(f"   Windows: SO_EXCLUSIVEADDRUSE only  {'OK' if win_ok else 'FAIL'}")
+    ok &= win_ok
+
+    fake = _FakeSock()
+    posix_ok = _inst.lock_socket_options(fake, platform="linux") == ["SO_REUSEADDR"]
+    print(f"   POSIX: SO_REUSEADDR kept  {'OK' if posix_ok else 'FAIL'}")
+    ok &= posix_ok
+
+    a = _inst.Instance({"instance": {"port": 47891}, "wake": {"port": 47890}})
+    b = _inst.Instance({"instance": {"port": 47891}, "wake": {"port": 47890}})
+    first, second = a.acquire(), b.acquire()
+    a.release()
+    lock_ok = first and not second
+    print(f"   the second copy is refused  {'OK' if lock_ok else 'FAIL'}")
+    ok &= lock_ok
+
     print("\nPASS" if ok else "\nFAIL")
     return 0 if ok else 1
 

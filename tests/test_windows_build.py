@@ -286,6 +286,10 @@ check("the output is checked for the exe, the voice exe and _internal",
       all(k in w for k in ("ArcDeskVoice.exe is missing", "_internal is missing")), True)
 check("the icon is checked (its absence is what the user saw on the desktop)",
       "arc_icon.ico" in w, True)
+check("the exe's own icon is checked, not just the .ico file",
+      "--icon-check" in w, True)
+check("…and a bad icon stops the artifact from being published",
+      "does not carry Arc Desk's icon" in w, True)
 check("the built exe is actually STARTED on the runner",
       "Start-Process" in w and "--doctor" in w, True)
 check("…and the step WAITS for it to exit instead of guessing with a sleep",

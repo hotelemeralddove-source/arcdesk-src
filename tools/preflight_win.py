@@ -197,6 +197,61 @@ def check_qt() -> tuple[str, str, str]:
     return (PASS, f"PySide6 {v}", "")
 
 
+
+# --------------------------------------------------------------- the exe's own icon
+# PyInstaller applies `icon=` with UpdateResource and writes each image of the .ico
+# VERBATIM as an RT_ICON resource (PyInstaller/utils/win32/icon.py: `file.read(
+# e.dwBytesInRes)`). So "does this exe carry Arc Desk's icon" is answerable by looking
+# for those exact bytes in the .exe file - no Windows API, no reading resources.
+#
+# Why bother: when the icon is not applied, PyInstaller substitutes its own
+# (a yellow python over a white page on a blue floppy). Run #14 shipped exactly that
+# and the user's desktop shortcut showed a Python picture, which is a fair thing to
+# rage about. A file-level check is the only way to catch it before the artifact is
+# published.
+def ico_images(ico_path) -> list[bytes]:
+    """Every image blob inside a .ico, the way PyInstaller reads them."""
+    import struct
+    data = Path(ico_path).read_bytes()
+    if len(data) < 6 or data[:4] != b"\x00\x00\x01\x00":
+        raise ValueError(f"{ico_path} is not a .ico file")
+    count = struct.unpack("<H", data[4:6])[0]
+    images = []
+    for i in range(count):
+        off = 6 + i * 16
+        _w, _h, _c, _r, _p, _bpp, size, offset = struct.unpack("<BBBBHHII",
+                                                              data[off:off + 16])
+        images.append(data[offset:offset + size])
+    return images
+
+
+def icon_embedded(exe_path, ico_path) -> tuple[bool, str]:
+    """Is Arc Desk's icon inside this exe, or is it PyInstaller's default?
+
+    Returns (ok, sentence). ok is False when the exe carries none of the icon, and also
+    when the exe is missing or the .ico cannot be read - an unreadable icon is not a pass.
+    """
+    exe = Path(exe_path)
+    if not exe.is_file():
+        return False, f"{exe} does not exist"
+    try:
+        images = ico_images(ico_path)
+    except (OSError, ValueError) as exc:
+        return False, f"cannot read {ico_path}: {exc}"
+    if not images:
+        return False, f"{ico_path} contains no images"
+    blob = exe.read_bytes()
+    hits = sum(1 for image in images if image and image in blob)
+    biggest = max(images, key=len)
+    if biggest in blob:
+        return True, (f"{exe.name} carries Arc Desk's icon "
+                      f"({hits} of {len(images)} image sizes found inside the exe)")
+    return False, (f"{exe.name} does NOT carry shots/arc_icon.ico - it is wearing "
+                   f"PyInstaller's default icon (the yellow python on a page). 0 of "
+                   f"{len(images)} image sizes found in {len(blob) // 1024} KB. The "
+                   f"desktop shortcut will look like a Python script")
+
+
 def check_inno() -> tuple[str, str, str]:
     for base in (r"C:\Program Files (x86)\Inno Setup 6\ISCC.exe",
                  r"C:\Program Files\Inno Setup 6\ISCC.exe"):
@@ -414,6 +469,16 @@ def main(argv: list[str] | None = None) -> int:
         return run(as_json=True)
     if "--quiet" in argv:
         return run(verbose=False)
+    if "--icon-check" in argv:
+        # used by the Windows workflow AFTER PyInstaller has run: the build machine
+        # has the only copy of the exe, so this is the only place it can be judged.
+        rest = [a for a in argv if a != "--icon-check"]
+        if len(rest) < 2:
+            print("usage: preflight_win.py --icon-check <exe> <ico>")
+            return 2
+        ok, message = icon_embedded(rest[0], rest[1])
+        print(("OK   " if ok else "FAIL ") + message)
+        return 0 if ok else 1
     return run()
 
 

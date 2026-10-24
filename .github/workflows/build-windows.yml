@@ -105,6 +105,24 @@ jobs:
           }
           "the output is complete."
 
+      - name: 4b. the exe really wears Arc Desk's icon (not PyInstaller's default)
+        shell: pwsh
+        run: |
+          # Step 4 checks that the .ico FILE exists. It cannot know whether PyInstaller
+          # actually applied it. When it does not, the exe silently keeps PyInstaller's
+          # own icon: the yellow python over a white page on a blue floppy. Run #14
+          # shipped exactly that, and the desktop shortcut looked like a Python script.
+          # PyInstaller writes each .ico image verbatim into the exe, so this is a
+          # byte-for-byte question with a byte-for-byte answer.
+          python tools\preflight_win.py --icon-check dist\ArcDesk\ArcDesk.exe shots\arc_icon.ico
+          if ($LASTEXITCODE -ne 0) {
+            throw "the exe does not carry Arc Desk's icon - the desktop shortcut would look like a Python script"
+          }
+          python tools\preflight_win.py --icon-check dist\ArcDesk\ArcDeskVoice.exe shots\arc_icon.ico
+          if ($LASTEXITCODE -ne 0) {
+            throw "ArcDeskVoice.exe does not carry Arc Desk's icon"
+          }
+
       # ----------------------------------------------------- 5. does it actually run?
       - name: 5. start the built exe on this runner and read its log
         shell: pwsh

@@ -78,16 +78,21 @@ Source: "..\runtime\node\*"; DestDir: "{app}\runtime\node"; Flags: recursesubdir
 #endif
 
 [Icons]
-Name: "{group}\{#AppName}"; Filename: "{app}\{#AppExe}"
+; --show on purpose. The app may be configured to start hidden (that is what the
+; Run-key entry below does, with --shadow, every boot). A person double-clicking the
+; icon is not a boot: they are asking to see it. Without this parameter the shortcut
+; started a process with no window and no card, which is the report "it installs but
+; does not work".
+Name: "{group}\{#AppName}"; Filename: "{app}\{#AppExe}"; Parameters: "--show"
 Name: "{group}\Uninstall {#AppName}"; Filename: "{uninstallexe}"
-Name: "{autodesktop}\{#AppName}"; Filename: "{app}\{#AppExe}"; Tasks: desktopicon
+Name: "{autodesktop}\{#AppName}"; Filename: "{app}\{#AppExe}"; Parameters: "--show"; Tasks: desktopicon
 
 [Run]
-Filename: "{app}\{#AppExe}"; Description: "Open Arc Desk now"; Flags: nowait postinstall skipifsilent
+Filename: "{app}\{#AppExe}"; Parameters: "--show"; Description: "Open Arc Desk now"; Flags: nowait postinstall skipifsilent
 ; The speech models are the one thing a fresh machine cannot do without: 40 MB for
 ; Vosk (commands) and 30 MB for the speaker model (voice lock). Downloading them here,
 ; visibly, is why "hey jarvis" works on the first try instead of failing mysteriously.
-Filename: "{app}\{#AppExe}"; Parameters: "--download-voice-model"; \
+Filename: "{app}\{#AppExe}"; Parameters: "--download-voice-model --shadow"; \
     Description: "Download the speech models now (70 MB) so ""hey jarvis"" works"; \
     Flags: postinstall runhidden skipifsilent unchecked
 

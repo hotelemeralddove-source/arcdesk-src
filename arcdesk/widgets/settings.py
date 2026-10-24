@@ -851,7 +851,7 @@ class SettingsDialog(QDialog):
         self.honorific.setText(str(comp.get("honorific") or "commander"))
         self._refresh_voice_status()
 
-        self.shadow.setChecked(bool(sh.get("enabled", True)))
+        self.shadow.setChecked(bool(sh.get("enabled", False)))
         self.tray.setChecked(bool(sh.get("tray", True)))
         self.autostart_on.setChecked(autostart.is_enabled())
         self.hotkey_palette.setText(str(sh.get("hotkey_palette", "ctrl+alt+j")))
@@ -924,6 +924,9 @@ class SettingsDialog(QDialog):
 
         sh = self.cfg.setdefault("shadow", {})
         sh["enabled"] = self.shadow.isChecked()
+        # A person ticking this box is telling us they want a hidden start. Record it so
+        # the one-time migration in config.migrate never overrules them.
+        sh["user_choice"] = True
         sh["tray"] = self.tray.isChecked()
         sh["hotkey_palette"] = self.hotkey_palette.text().strip() or "ctrl+alt+j"
         sh["hotkey_quit"] = self.hotkey_quit.text().strip() or "ctrl+alt+q"

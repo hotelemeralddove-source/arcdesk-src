@@ -150,7 +150,9 @@ class MainWindow(QWidget):
 
         # --- shadow mode / hotkeys / palette ----------------------------
         scfg = cfg.get("shadow", {})
-        self.shadow = bool(scfg.get("enabled", True)) and not cfg.get("_force_show")
+        self.shadow = bool(scfg.get("enabled", False)
+                           or cfg.get("_stealth_this_launch")) \
+            and not cfg.get("_force_show")
         self._awakening = None
         self._last_question = ""        # kept for the vault's checkpoint
         self.palette = CommandPalette(self.theme)
@@ -1080,7 +1082,7 @@ class MainWindow(QWidget):
             self.close_application()
             return
 
-        if self.cfg.get("shadow", {}).get("enabled", True):
+        if self.cfg.get("shadow", {}).get("enabled", False):
             self.hide()
         else:
             self.show()
@@ -1186,7 +1188,7 @@ class MainWindow(QWidget):
         if keep_ears:
             launcher, why_not = self._arm_launcher(spawn=spawn)
             if launcher is None:
-                if self.cfg.get("shadow", {}).get("enabled", True):
+                if self.cfg.get("shadow", {}).get("enabled", False):
                     self.hide()
                 message = (f"BYE JARVIS heard, but I stayed open: {why_not}. "
                            f"Close me with Ctrl+Alt+Q, or install the voice extras "
@@ -1503,7 +1505,7 @@ class MainWindow(QWidget):
             self._awakening = None
             self.console.add_note("MAGIC · awakening cancelled")
             self.lbl_ready.setText(HINT_IDLE)
-            if not self.cfg.get("shadow", {}).get("enabled", True):
+            if not self.cfg.get("shadow", {}).get("enabled", False):
                 self.show()
             return
         if self.magic_active:

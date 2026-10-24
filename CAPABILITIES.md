@@ -752,6 +752,18 @@ pananum."* Two voices, two questions — and until now only one of them had a bu
 - **frozen builds stop lying about the silent-spawn scan**: `quiet.covered()` reads the
   sources in a checkout and falls back to the declared list inside a PyInstaller archive,
   so the doctor says `23 of 23 … (compiled build)` instead of a false `[FAIL]`.
+- **"installed, but it does not work" (fixed)**: the honest cause was our own visibility
+  rule, not a crash. `shadow.enabled` defaulted to **true**, and `--shadow` — the flag the
+  Windows boot entry passes — was written into `settings.json`. One boot with Windows, and
+  from then on every double-click started a process with no window, no setup card and only
+  a tray icon. Fixed four ways: the installer's Desktop / Start Menu shortcuts pass
+  `--show`; `--shadow` is now a per-launch flag that `config.save()` strips (underscore
+  keys never reach the file); a one-time `shadow` migration (same `user_choice` /
+  `migrated_off` shape as the charms rule) corrects old files; and run.py writes its
+  decision to the log — `BOOT · the window is shown` / `stealth: …` / `handles: tray=…`.
+  Guarded by `tests/test_firstrun.py`, which boots the real entry point four ways —
+  `--shadow`, `--show`, **no flags** (a double-click) and an old settings file that says
+  "hidden" — and asserts the window state each time, read from the app's own log.
 - **72 tests.**
 - **the workflow was simplified** to install → build → zip → upload. A blocking test step
   had cost four builds; the installer is now always produced, with a portable zip as the

@@ -19,10 +19,39 @@ from __future__ import annotations
 
 import json
 import socket
+import sys
 import threading
 from typing import Callable
 
 LIVE = threading.Event()
+
+# Windows-only, and absent from `socket` on other platforms.
+_EXCLUSIVE = getattr(socket, "SO_EXCLUSIVEADDRUSE", None)
+
+
+def lock_socket_options(sock, platform: str | None = None) -> list[str]:
+    """Make `bind()` refuse a second copy — and mean it on Windows.
+
+    SO_REUSEADDR is what every tutorial sets, and on Windows it does the *opposite* of
+    what it does on Linux: Windows lets a second socket bind an address that is already
+    in use, so both processes believe they are the only one. Measured on the user's
+    laptop (ArcDeskDiag.txt, section 6): **two** ArcDesk.exe processes, ~100 MB each.
+    Two windows, two tray icons, two microphone listeners, and whichever one is in front
+    is a coin toss.
+
+    SO_EXCLUSIVEADDRUSE exists on Windows for exactly this, and must be set before bind.
+    Returns the option names applied, so a test can assert the branch without Windows.
+    """
+    platform = platform or sys.platform
+    applied = []
+    if platform == "win32":
+        if _EXCLUSIVE is not None:
+            sock.setsockopt(socket.SOL_SOCKET, _EXCLUSIVE, 1)
+            applied.append("SO_EXCLUSIVEADDRUSE")
+    else:
+        sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+        applied.append("SO_REUSEADDR")
+    return applied
 
 
 def lock_port(cfg: dict) -> int:
@@ -59,7 +88,7 @@ class Instance:
         """True if we are the first instance, False if one already exists."""
         s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         try:
-            s.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+            lock_socket_options(s)
             s.bind(("127.0.0.1", self.port))
             s.listen(2)
         except OSError:

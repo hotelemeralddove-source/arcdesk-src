@@ -58,7 +58,13 @@ DEFAULTS: dict[str, Any] = {
     },
     "first_run": True,          # show the one-page welcome/setup card once
     "shadow": {
-        "enabled": True,          # boot with no window, no tray icon, no taskbar entry
+        # FALSE, and it matters. This used to default to True, which meant a person who
+        # double-clicked the desktop icon got no window, no card, nothing — the honest
+        # report for that is "installed, but it does not work". Stealth is what *booting
+        # with Windows* asks for: the Run entry passes --shadow every boot (keep it that
+        # way), and the desktop shortcut passes --show. A deliberate click must always
+        # produce something on screen.
+        "enabled": False,
         "hotkey_palette": "ctrl+alt+j",
         "hotkey_quit": "ctrl+alt+q",
         "hotkeys": True,
@@ -203,12 +209,26 @@ def _migrate(cfg: dict[str, Any]) -> dict[str, Any]:
                 and not charms.get("migrated_off"):
             charms["enabled"] = False
             charms["migrated_off"] = True
+
+    # Rule 2 (2026-10, same shape): "start hidden" was the default AND `--shadow` was
+    # written into the settings file. One boot with Windows therefore left every later
+    # double-click starting a process with no window and only a tray icon — reported,
+    # correctly, as "it installs but it does not work". Anybody who ticked the box in
+    # Settings has `user_choice`, and is never touched again.
+    shadow = cfg.get("shadow")
+    if isinstance(shadow, dict):
+        if shadow.get("enabled") and not shadow.get("user_choice") \
+                and not shadow.get("migrated_off"):
+            shadow["enabled"] = False
+            shadow["migrated_off"] = True
     return cfg
 
 
 def load() -> dict[str, Any]:
     try:
-        raw = json.loads(settings_path().read_text("utf-8"))
+        # utf-8-sig: Windows PowerShell writes a BOM unless told not to, and a BOM
+        # would otherwise throw here and silently reset every setting.
+        raw = json.loads(settings_path().read_text(encoding="utf-8-sig"))
         if not isinstance(raw, dict):
             raise ValueError("settings root is not an object")
         return _migrate(_merge(DEFAULTS, raw))
@@ -220,8 +240,15 @@ def load() -> dict[str, Any]:
 
 
 def save(cfg: dict[str, Any]) -> None:
-    """Atomic write: a crash mid-save can never leave a broken settings file."""
+    """Atomic write: a crash mid-save can never leave a broken settings file.
+
+    Keys starting with an underscore are "this launch only" (--shadow, --show and the
+    other command-line switches). They are stripped here because a switch must never
+    become a saved preference: that is how one `--shadow` boot used to turn every later
+    double-click into a window that never appears.
+    """
     try:
+        cfg = {k: v for k, v in cfg.items() if not k.startswith("_")}
         target = settings_path()
         target.parent.mkdir(parents=True, exist_ok=True)
         fd, tmp = tempfile.mkstemp(dir=str(target.parent), suffix=".tmp")

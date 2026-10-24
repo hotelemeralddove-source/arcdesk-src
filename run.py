@@ -89,7 +89,12 @@ def main(argv: list[str] | None = None) -> int:
     if args.mode:
         cfg["mode"] = args.mode
     if args.shadow:
-        cfg.setdefault("shadow", {})["enabled"] = True
+        # This launch only. It used to be written into the settings file, so ONE boot
+        # with Windows (which passes --shadow) turned every later double-click into a
+        # hidden process: installed, and apparently dead. The Run key passes --shadow
+        # every boot, so nothing is lost by keeping it out of the saved settings
+        # (config.save strips the underscore keys).
+        cfg["_stealth_this_launch"] = True
     if args.show:
         cfg["_force_show"] = True
 
@@ -174,17 +179,31 @@ def main(argv: list[str] | None = None) -> int:
     from arcdesk.tray import ArcTray, reactor_icon
     win.setWindowIcon(reactor_icon(cfg["mode"]))
     tray = None
-    hidden_boot = (args.shadow or win.shadow) and not args.show
-    if hidden_boot:
-        win.hide()
     want_tray = bool(cfg.get("shadow", {}).get("tray", True)) and not args.no_tray
     if want_tray and QSystemTrayIcon.isSystemTrayAvailable():
         tray = ArcTray(win)
         tray.show()
         app.setProperty("arc_tray", True)
 
-    if not hidden_boot:
+    # Stealth is decided here, once, and the decision is written to the log. A hidden
+    # app that says nothing is indistinguishable from an app that crashed, which is the
+    # report that started this: "it installs, but it does not work".
+    hidden_boot = (args.shadow or win.shadow) and not args.show
+    if hidden_boot and tray is None and not args.no_tray:
+        hidden_boot = False
+        logs.note("BOOT · stealth was asked for, but this system gave no tray icon — "
+                  "showing the window instead of hiding with nothing to click")
+    if hidden_boot:
+        win.hide()
+        logs.note("BOOT · stealth: the window is not shown (that is what --shadow asks "
+                  "for). Ctrl+Alt+J opens it; the tray icon is the other handle")
+    else:
         win.show()
+        logs.note("BOOT · the window is shown")
+    logs.note("BOOT · handles: tray=%s, hotkeys=%s, stealth=%s"
+              % ("yes" if tray is not None else "no",
+                 "yes" if cfg.get("shadow", {}).get("hotkeys", True) else "no",
+                 "on" if hidden_boot else "off"))
 
     if getattr(args, "download_voice_model", False):
         # The installer offers this as a post-install tick: without the 40 MB speech
@@ -256,8 +275,13 @@ def main(argv: list[str] | None = None) -> int:
                     win.console.add_note("SETUP · icon mode: nothing listens in the "
                                          "background. Click me (or Ctrl+Alt+J) whenever "
                                          "you need something.")
-        except Exception:
-            pass
+        except Exception as exc:                                # noqa: BLE001
+            # Silence here is the worst outcome: on a fresh install the setup card is the
+            # only thing on screen, and a swallowed exception meant "nothing opened".
+            logs.note(f"SETUP · the welcome card could not open "
+                      f"({type(exc).__name__}: {exc}) — showing the main window instead")
+            win.show()
+            win.raise_()
 
     # "which file mentions X" only works once something has been read. Do it once, in
     # the background, so the window is never blocked by somebody's 4,000 PDFs.
