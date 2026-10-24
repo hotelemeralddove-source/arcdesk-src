@@ -1,0 +1,282 @@
+"""Is this machine able to build a Windows installer that will actually start?
+
+The bug this answers
+--------------------
+`ArcDeskSetup.exe` (53 MB, built here) double-clicked, and Windows answered:
+
+    AppInstallerPythonRedirector.exe - Application Error
+    The application was unable to start correctly (0xc0000142).
+
+Two separate faults hide behind that one dialog, and both are build-machine problems,
+not user problems:
+
+1. **`AppInstallerPythonRedirector.exe` is the Microsoft Store's Python alias.** It is
+   what `python.exe` resolves to when the only Python on the machine is the Store
+   package (or its leftover stub). A PyInstaller build made with that interpreter
+   carries DLLs from a package folder with restricted ACLs, and the frozen exe then
+   **cannot initialise those DLLs** — which Windows reports as `0xc0000142`
+   (`STATUS_DLL_INIT_FAILED`). The build "succeeds" and the result never opens.
+
+2. **`0xc0000142` is also what a frozen app says when the MSVC runtime is missing.**
+   PySide6 needs `vcruntime140.dll` / `msvcp140.dll`; on a clean Windows install they
+   are not guaranteed to be in `System32`. They must be shipped *next to the exe*.
+
+So this file checks, before PyInstaller is allowed to run:
+
+    python  — real CPython, not the Store alias, 64-bit, new enough
+    venv    — an isolated build, so the user's machine stays clean
+    runtime — the MSVC DLLs that PySide6 needs are findable and will be bundled
+    space   — enough disk for a ~1.2 GB build folder
+    paths   — not inside OneDrive (it locks files mid-build; PyInstaller then dies)
+    tools   — PyInstaller present, Inno Setup present (or the honest fallback)
+
+Exit code 1 on any FAIL, and every FAIL carries the one action that fixes it, because
+"build failed" with no next step is how an afternoon disappears.
+
+Tested from Linux: `classify_python()` and `msvc_runtime_files()` are pure functions,
+so the Windows rules are provable without a Windows machine.
+"""
+from __future__ import annotations
+
+import json
+import platform
+import shutil
+import struct
+import sys
+from pathlib import Path
+
+ROOT = Path(__file__).resolve().parents[1]
+
+PASS, WARN, FAIL, INFO = "PASS", "WARN", "FAIL", "INFO"
+
+#: Windows ships these in System32 only when the VC++ Redistributable is installed.
+MSVC_DLLS = ("vcruntime140.dll", "vcruntime140_1.dll", "msvcp140.dll", "concrt140.dll")
+
+#: Where the Store puts the App Execution Alias stubs.
+STORE_ALIAS_MARKERS = ("windowsapps", "appinstallerpythonredirector",
+                       "pythonsoftwarefoundation.python")
+
+MIN_PYTHON = (3, 9)
+GOOD_PYTHON = (3, 11)
+
+
+def _rows() -> list[dict]:
+    return []
+
+
+def classify_python(executable: str, version: tuple[int, int] | None = None,
+                    base_prefix: str = "", bits: int = 64,
+                    in_venv: bool = False) -> tuple[str, str, str]:
+    """Judge a build interpreter. Pure: no filesystem, no OS calls.
+
+    Returns (verdict, what it is, what to do about it). Whether the interpreter is the
+    Microsoft Store alias is decided by its *path*, because that is exactly how Windows
+    decides: the alias lives in `...\\WindowsApps\\python.exe`.
+    """
+    low = (executable or "").lower()
+    prefix_low = (base_prefix or "").lower()
+    shown = executable or "(unknown)"
+
+    if any(marker in low for marker in STORE_ALIAS_MARKERS) or \
+       any(marker in prefix_low for marker in STORE_ALIAS_MARKERS):
+        return (FAIL,
+                f"this is the Microsoft Store Python alias ({shown}). A frozen exe built "
+                f"with it fails to start with 0xc0000142",
+                "Turn the alias off (Settings > Apps > Advanced app settings > App "
+                "execution aliases > python.exe and python3.exe), install Python from "
+                "python.org, then run packaging\\build_all.bat again")
+
+    if version is not None and tuple(version) < MIN_PYTHON:
+        return (FAIL, f"Python {version[0]}.{version[1]} is too old ({shown})",
+                f"Install Python {GOOD_PYTHON[0]}.{GOOD_PYTHON[1]} or newer from python.org")
+
+    if version is not None and tuple(version) < GOOD_PYTHON:
+        return (WARN, f"Python {version[0]}.{version[1]} works, but is older than the "
+                      f"builds this repo was measured on",
+                "Fine to continue. Python 3.11+ is what the size and speed numbers "
+                "come from")
+
+    if bits and bits != 64:
+        return (FAIL, f"32-bit Python ({shown}) — the Qt wheels here are 64-bit",
+                "Install the 64-bit installer from python.org")
+
+    note = "64-bit CPython" + (" in a venv" if in_venv else " (not a venv)")
+    if not in_venv:
+        return (WARN, f"{note}: everything pip installs lands in your system Python",
+                "Fine, but `py -3 -m venv .venv` then running build_all.bat keeps this "
+                "repo's packages out of your system Python")
+    return (PASS, note, "")
+
+
+def msvc_runtime_files(base_prefix: str | Path) -> list[tuple[str, str]]:
+    """The MSVC runtime DLLs that must ride along with the exe.
+
+    Returns PyInstaller `binaries` entries: (source path, destination folder). Empty
+    when the files cannot be found — the caller then *says so* instead of pretending
+    the exe will open on a machine without the VC++ Redistributable.
+    """
+    found: list[tuple[str, str]] = []
+    base = Path(base_prefix)
+    for folder in (base, base / "DLLs", base / "Library" / "bin"):
+        if not folder.is_dir():
+            continue
+        for name in MSVC_DLLS:
+            path = folder / name
+            if path.is_file():
+                entry = (str(path), ".")
+                if entry not in found:
+                    found.append(entry)
+    return found
+
+
+def check_python() -> tuple[str, str, str]:
+    exe = sys.executable or ""
+    version = (sys.version_info.major, sys.version_info.minor)
+    bits = struct.calcsize("P") * 8
+    base = getattr(sys, "base_prefix", "") or ""
+    in_venv = bool(getattr(sys, "prefix", "") != base and base)
+    return classify_python(exe, version, base, bits, in_venv)
+
+
+def check_runtime() -> tuple[str, str, str]:
+    found = msvc_runtime_files(getattr(sys, "base_prefix", "") or "")
+    names = sorted({Path(src).name for src, _ in found})
+    if not found:
+        return (WARN, "no MSVC runtime DLLs found next to this Python",
+                "Windows almost always has them in System32. The spec bundles them when "
+                "they are visible; if the built exe says 0xc0000142, install the "
+                "Microsoft Visual C++ Redistributable (x64) and rebuild")
+    return (PASS, "will bundle " + ", ".join(names), "")
+
+
+def check_disk(need_gb: float = 6.0) -> tuple[str, str, str]:
+    try:
+        free = shutil.disk_usage(str(ROOT)).free / (1024 ** 3)
+    except OSError:
+        return (INFO, "free disk space unknown", "")
+    if free < need_gb:
+        return (FAIL, f"{free:.1f} GB free, about {need_gb:.0f} GB is needed for a build",
+                "Free some space: packaging\\work alone passes 1 GB, and Inno Setup "
+                "compresses a second copy of everything")
+    return (PASS, f"{free:.1f} GB free", "")
+
+
+def check_path() -> tuple[str, str, str]:
+    here = str(ROOT).lower()
+    if "onedrive" in here:
+        return (WARN, "this folder is inside OneDrive",
+                "OneDrive locks files while it uploads them, and PyInstaller then fails "
+                "mid-build with a permission error. Move the repo to C:\\ArcDesk")
+    if " " in here:
+        return (INFO, "the path contains a space",
+                "It works (everything is quoted), just slower to read in logs")
+    if len(str(ROOT)) > 110:
+        return (WARN, f"the path is {len(str(ROOT))} characters long",
+                "Windows stops at 260 unless long paths are enabled. Move the repo "
+                "closer to C:\\")
+    return (PASS, str(ROOT), "")
+
+
+def check_pyinstaller() -> tuple[str, str, str]:
+    try:
+        import PyInstaller  # noqa: F401
+        from PyInstaller import __version__ as v
+    except Exception:                                   # noqa: BLE001
+        return (FAIL, "PyInstaller is not installed for this interpreter",
+                "python -m pip install pyinstaller")
+    return (PASS, f"PyInstaller {v}", "")
+
+
+def check_qt() -> tuple[str, str, str]:
+    try:
+        import PySide6
+        from PySide6 import __version__ as v
+    except Exception:                                   # noqa: BLE001
+        return (FAIL, "PySide6 is not installed for this interpreter",
+                "python -m pip install -r requirements.txt")
+    return (PASS, f"PySide6 {v}", "")
+
+
+def check_inno() -> tuple[str, str, str]:
+    for base in (r"C:\Program Files (x86)\Inno Setup 6\ISCC.exe",
+                 r"C:\Program Files\Inno Setup 6\ISCC.exe"):
+        if Path(base).is_file():
+            return (PASS, base, "")
+    if sys.platform != "win32":
+        return (INFO, "not a Windows machine — the installer is compiled there, not here",
+                "")
+    return (WARN, "Inno Setup 6 not found — the .exe installer cannot be compiled",
+            "winget install JRSoftware.InnoSetup   (free). The app still builds, and "
+            "dist\\ArcDesk\\ can be zipped and run as-is")
+
+
+def check_assets() -> tuple[str, str, str]:
+    needed = {"run.py": ROOT / "run.py", "arc_daemon.py": ROOT / "arc_daemon.py",
+              "icon": ROOT / "shots" / "arc_icon.ico",
+              "Inno script": ROOT / "packaging" / "arcdesk.iss"}
+    missing = [name for name, path in needed.items() if not path.is_file()]
+    if missing:
+        return (WARN, "missing: " + ", ".join(missing),
+                "The build continues without them (the icon falls back), but "
+                "make_installer.bat needs the .ico and the .iss")
+    return (PASS, "run.py, arc_daemon.py, icon, Inno script all present", "")
+
+
+CHECKS = (
+    ("Python", check_python),
+    ("MSVC runtime", check_runtime),
+    ("PySide6", check_qt),
+    ("PyInstaller", check_pyinstaller),
+    ("Inno Setup", check_inno),
+    ("Assets", check_assets),
+    ("Disk space", check_disk),
+    ("Build path", check_path),
+)
+
+
+def run(verbose: bool = True, as_json: bool = False) -> int:
+    rows = []
+    for name, fn in CHECKS:
+        try:
+            verdict, detail, fix = fn()
+        except Exception as exc:                       # noqa: BLE001
+            verdict, detail, fix = WARN, f"check skipped: {type(exc).__name__}: {exc}", ""
+        rows.append({"check": name, "verdict": verdict, "detail": detail, "fix": fix})
+
+    fails = [r for r in rows if r["verdict"] == FAIL]
+    warns = [r for r in rows if r["verdict"] == WARN]
+
+    if as_json:
+        print(json.dumps({"rows": rows, "fail": len(fails), "warn": len(warns)}, indent=2))
+    elif verbose:
+        print("Arc Desk · before building a Windows installer")
+        print("=" * 74)
+        icons = {PASS: "[ok]  ", WARN: "[warn]", FAIL: "[FAIL]", INFO: "[info]"}
+        for r in rows:
+            print(f"{icons.get(r['verdict'], '[?]   ')} {r['check']:<14} {r['detail'][:96]}")
+        if fails or warns:
+            print("-" * 74)
+            for r in fails + warns:
+                if r["fix"]:
+                    print(f"  {r['check']}: {r['fix']}")
+        print("=" * 74)
+        if fails:
+            print(f"RESULT: {len(fails)} problem(s) to fix before a build is worth starting.")
+        elif warns:
+            print(f"RESULT: buildable, with {len(warns)} warning(s).")
+        else:
+            print("RESULT: everything checks out. Run packaging\\build_all.bat.")
+    return 1 if fails else 0
+
+
+def main(argv: list[str] | None = None) -> int:
+    argv = list(sys.argv[1:] if argv is None else argv)
+    if "--json" in argv:
+        return run(as_json=True)
+    if "--quiet" in argv:
+        return run(verbose=False)
+    return run()
+
+
+if __name__ == "__main__":
+    raise SystemExit(main())

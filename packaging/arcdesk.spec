@@ -100,14 +100,42 @@ for page in ("KNOWS_PAGE.html", "STUDIO_PAGE.html", "TOOLS_PAGE.html"):
 icon = str(ROOT / "shots" / "arc_icon.ico")
 icon_arg = icon if Path(icon).is_file() else None
 
+# ---------------------------------------------------------------- MSVC runtime
+# 0xc0000142 (STATUS_DLL_INIT_FAILED) is what a frozen PySide6 app says on a machine
+# without the Microsoft Visual C++ Redistributable: Qt needs vcruntime140 / msvcp140 and
+# Windows only has them in System32 when something else installed them first. PyInstaller
+# usually picks them up, "usually" is not a promise, so they are collected on purpose and
+# shipped beside the exe. The finder lives in tools/preflight_win.py so it can be tested
+# from any platform.
+sys.path.insert(0, str(ROOT / "tools"))
+try:
+    from preflight_win import msvc_runtime_files
+    _msvc = msvc_runtime_files(sys.base_prefix)
+except Exception as _exc:                          # noqa: BLE001
+    print(f"[spec] WARNING: could not look for the MSVC runtime ({_exc})")
+    _msvc = []
+if _msvc:
+    print(f"[spec] runtime: bundling {', '.join(sorted({Path(s).name for s, _ in _msvc}))}")
+else:
+    print("[spec] runtime: no MSVC DLLs found next to this Python — the exe relies on "
+          "the VC++ Redistributable being installed on the target PC (see TROUBLESHOOT.md)")
+
+# Runs before run.py: makes the crash log exist even if the first import fails. A
+# windowed build that dies early otherwise leaves literally nothing behind.
+_rth = ROOT / "packaging" / "pyi_rth_arcdesk.py"
+RUNTIME_HOOKS = [str(_rth)] if _rth.is_file() else []
+if not RUNTIME_HOOKS:
+    print("[spec] WARNING: packaging/pyi_rth_arcdesk.py is missing — an early crash "
+          "would leave no log at all")
+
 common = dict(
     pathex=[str(ROOT)],
-    binaries=[],
+    binaries=list(_msvc),
     datas=datas,
     hiddenimports=hiddenimports,
     hookspath=[],
     hooksconfig={},
-    runtime_hooks=[],
+    runtime_hooks=RUNTIME_HOOKS,
     excludes=["tkinter", "pytest", "matplotlib", "scipy", "pandas", "IPython",
               "PySide6.QtQml", "PySide6.QtQuick", "PySide6.QtWebEngineCore",
               "PySide6.QtSql", "PySide6.QtTest", "PySide6.QtMultimedia"],

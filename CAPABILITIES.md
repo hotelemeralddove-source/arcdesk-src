@@ -674,7 +674,40 @@ pananum."* Two voices, two questions — and until now only one of them had a bu
   working, zero direct `subprocess` calls left in runtime code, the daemon spawned
   detached, the `.pyw` launcher surviving a missing console, and the spec staying
   `console=False`.
-- **70 tests.**
+- **the installer that would not start** (`AppInstallerPythonRedirector.exe`,
+  `0xc0000142`): a *build-machine* fault, not an app fault. Two causes, both now
+  impossible to reach silently —
+  (1) building with the **Microsoft Store Python alias** (its DLLs come from a restricted
+  package folder, so the frozen exe cannot initialise them, and the build "succeeds"
+  while the output never opens); (2) a **missing MSVC runtime** on the target PC.
+  `tools/preflight_win.py` is now step 0 of `packaging/build.bat` and `build_all.bat`: it
+  judges the interpreter (Store alias, 32-bit, too old, no venv), the MSVC runtime, PySide6,
+  PyInstaller, Inno Setup, disk space and the build path (OneDrive, long paths), and
+  returns **exit 1 with the one action that fixes it** before PyInstaller spends two
+  minutes producing something that cannot open.
+- **the MSVC runtime is shipped, not assumed**: the spec collects `vcruntime140.dll`,
+  `vcruntime140_1.dll`, `msvcp140.dll`, `concrt140.dll` from the build interpreter and
+  puts them **next to the exe**, which is the actual cure for `0xc0000142`.
+- **`packaging/pyi_rth_arcdesk.py`** — a PyInstaller runtime hook that points
+  `stdout`/`stderr` at `%APPDATA%\ArcDesk\logs\arcdesk.log` and starts the log
+  **before `run.py` is imported**, so a windowed build that dies in its first second
+  leaves a traceback instead of nothing at all.
+- **`ArcDeskDiag.bat`** — double-click, no Python, no install: reports the OS, the file
+  sizes (a setup exe under 40 MB is a half-download), whether the download is **blocked**
+  (Mark of the Web) and offers to unblock it, whether `python` is the **Store alias**,
+  whether the MSVC runtime is present, what is already installed, and the App Execution
+  Alias state. Writes ArcDeskDiag.txt. It asks before changing anything.
+- **`TROUBLESHOOT.md`** — every dialog with its cause and its clicks, starting with the
+  route that needs no installer at all: extract `ArcDesk-portable.zip`, double-click
+  `ArcDesk.exe`.
+- **`requirements-build.txt`** — PyInstaller declared as a *build* tool, not a runtime
+  dependency, so `tests/test_audit.py` can keep refusing undeclared imports.
+- **new `tests/test_windows_build.py`** (10 sections): the Store-alias rules (path,
+  base_prefix, redirector name), 32-bit and old-Python refusal, the MSVC collector, the
+  spec wiring both the runtime and the hook, both build scripts running the preflight
+  **before** PyInstaller, the diagnostic's checks and its "ask first" behaviour, and the
+  guide naming the no-installer route first.
+- **71 tests.**
 - **the workflow was simplified** to install → build → zip → upload. A blocking test step
   had cost four builds; the installer is now always produced, with a portable zip as the
   fallback that cannot fail.

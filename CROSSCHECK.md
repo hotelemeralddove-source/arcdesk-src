@@ -36,7 +36,7 @@ Every `ok` below is a command that ran. `need` means this machine physically can
 | **ok** | TOOLS.md + TOOLS_PAGE.html current | tools reference is current — 88 tools, 10 sections, 0 mismatch |
 | **ok** | packaging consistent | 76 checks, 0 failed |
 | **ok** | docs agree with the code | counts, files, tests |
-| **ok** | 70/70 tests pass | the whole suite |
+| **ok** | 71/71 tests pass | the whole suite |
 | **ok** | BYE JARVIS closes the application | real app, real protocol, exit 0 |
 | **ok** | the app boots (run.py --shadow) | settings written, clean exit |
 | **ok** | Answer speed measured | Lite p50 0.28 ms · routing 1.12 ms |

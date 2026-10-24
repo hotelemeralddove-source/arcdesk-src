@@ -396,6 +396,7 @@ for rel, why in (("run.py", "the entry point"),
                  ("arcdesk/STUDIO_PAGE.html", "in-app studio"),
                  ("requirements.txt", "runtime deps"),
                  ("requirements-voice.txt", "voice deps"),
+                 ("requirements-build.txt", "build deps"),
                  ("check.bat", "the pre-flight")):
     p = ROOT / rel
     check(f"file exists: {rel} ({why})", p.is_file() and p.stat().st_size > 20, True)
@@ -427,7 +428,8 @@ _OPTIONAL = {
     "audioop": "removed from Python 3.13; the daemon handles its absence",
 }
 _declared: set[str] = set()
-for req_file in ("requirements.txt", "requirements-voice.txt"):
+for req_file in ("requirements.txt", "requirements-voice.txt",
+                 "requirements-build.txt"):
     for line in (ROOT / req_file).read_text(encoding="utf-8").splitlines():
         line = line.split("#")[0].strip()
         if not line or line.startswith("-"):

@@ -8,6 +8,20 @@ cd /d "%~dp0\.."
 
 if exist .venv\Scripts\python.exe (set PY=.venv\Scripts\python.exe) else (set PY=python)
 
+REM Step 0 is not optional any more. The Microsoft Store's Python alias (the dialog
+REM titled AppInstallerPythonRedirector.exe) produces an exe that installs and then
+REM dies with 0xc0000142 — the build looks fine, the user gets nothing. So the
+REM interpreter, the MSVC runtime and the build path are judged BEFORE PyInstaller
+REM spends two minutes producing something that cannot open.
+%PY% tools\preflight_win.py
+if errorlevel 1 (
+  echo.
+  echo   Fix the line^(s^) above and run this script again.
+  echo   Nothing was built, nothing was changed on this PC.
+  exit /b 1
+)
+echo.
+
 echo [1/5] python:
 %PY% --version
 echo.

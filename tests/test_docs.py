@@ -71,7 +71,9 @@ def main() -> int:
     missing = []
     SKIP = {"settings.json", "weather_cache.json", "ArcDesk.exe", "ArcDeskVoice.exe",
             "profile.json", "nudges.json", "voices.json",
-            "ArcDeskSetup.exe", "requirements.txt"}
+            "ArcDeskSetup.exe", "requirements.txt",
+            # written BY the diagnostic, at the user's machine, not shipped here
+            "ArcDeskDiag.txt"}
     # One index of every file in the tree. A doc that writes "build_all.bat" is telling
     # the truth when the file is at packaging/build_all.bat — the old version only
     # resolved bare names against *.py, so an honest sentence got reported as a lie.

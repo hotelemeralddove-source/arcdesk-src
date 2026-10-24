@@ -172,6 +172,29 @@ place (`arcdesk/quiet.py`), used by **95 spawn sites across 24 modules**.
 
 ---
 
+## 0e. When the installer itself will not start
+
+`AppInstallerPythonRedirector.exe — 0xc0000142` is a **build-machine** fault: the exe was
+made with the Microsoft Store's Python alias, or the PC has no MSVC runtime. Neither is
+something the app can fix from inside a window that never opened.
+
+| Double-click this | What happens |
+|---|---|
+| **`ArcDeskDiag.bat`** | no Python, no install: writes ArcDeskDiag.txt — blocked download? Store alias? runtime missing? already installed? — and offers to unblock the files |
+| **`ArcDesk-portable.zip`** → Extract All → **`ArcDesk.exe`** | use it today, nothing installed, no Python needed |
+
+If you are the one building it:
+
+| Command | What it does |
+|---|---|
+| `python tools\preflight_win.py` | judges the machine **before** PyInstaller: Store alias, 32-bit, old Python, MSVC runtime, PySide6, PyInstaller, Inno Setup, disk, OneDrive/long paths. Exit 1 with the fix printed |
+| `packaging\build_all.bat` | runs that same check as step 0, then builds; it cannot be skipped |
+| `python -m pip install -r requirements-build.txt` | the build-only dependency (PyInstaller) |
+
+The full dialog-by-dialog table is in **TROUBLESHOOT.md**.
+
+---
+
 ## 1. Drawing — the thing you asked about
 
 | You say | What happens | Needs |
