@@ -59,6 +59,15 @@ for pattern in ("*.json", "*.png", "*.svg", "*.ico", "*.wav", "*.qm", "*.html"):
 # --doctor is a promised feature (README, INSTALL, Settings -> System), and it is a
 # plain script that imports only the stdlib and arcdesk. Ship it as data; without this
 # the frozen app answers "--doctor" with ModuleNotFoundError.
+# tools/clone_speak.py is how the installed app speaks in a cloned voice: the engine
+# lives in a private folder and this script is run with that interpreter (see
+# arcdesk/engines.py). Without it here the button installs a model and nothing can use it.
+CLONE_SPEAK = ROOT / "tools" / "clone_speak.py"
+if CLONE_SPEAK.is_file():
+    datas += [(str(CLONE_SPEAK), "tools")]
+else:
+    print("[spec] WARNING: tools/clone_speak.py is missing — cloned replies cannot work")
+
 DOCTOR = ROOT / "tools" / "doctor.py"
 if DOCTOR.is_file():
     datas += [(str(DOCTOR), "tools")]

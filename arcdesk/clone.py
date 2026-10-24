@@ -138,6 +138,18 @@ def engines() -> dict[str, dict]:
             if not _importable(module):
                 missing.append(f"the '{module}' package")
             out[key]["why"] = "missing " + " and ".join(missing)
+    # The installed .exe keeps its engine in a private folder (see engines.py), so a
+    # missing local package can still mean "ready" — but only when that folder really
+    # has the weights, and the reply is then produced by a child process.
+    try:
+        from . import engines as _engmod
+        for key in ("indicf5", "xtts"):
+            if not out[key]["available"] and _engmod.sidecar_ready(key):
+                out[key].update(available=True, sidecar=True, model=str(_engmod.sidecar_dir()),
+                                why="")
+    except Exception:
+        pass
+
     piper_ok = _piper_ready()
     out["piper"] = {"available": piper_ok, "module": "piper", "model": "",
                     "why": "" if piper_ok else "piper is not installed"}
@@ -587,6 +599,16 @@ def speak(text: str, lang: str = "en", wav: str = "") -> bool:
     ref = reference()
     engine = route(lang)
     try:
+        if ref and engine in ("indicf5", "xtts"):
+            try:
+                from . import engines as _engmod
+            except Exception:
+                _engmod = None
+            # local packages first (no process start); the private folder only when
+            # this process genuinely cannot import them, i.e. the installed .exe
+            if _engmod is not None and _engmod.sidecar_ready(engine) \
+                    and not _local_engine(engine):
+                return _sidecar_speak(text, lang, ref, wav, engine, _engmod)
         if engine == "indicf5" and ref:
             return _indicf5(text, lang, ref, wav)
         if engine == "xtts" and ref:
@@ -594,6 +616,21 @@ def speak(text: str, lang: str = "en", wav: str = "") -> bool:
         return False            # piper / sapi are handled by voice.py itself
     except Exception:
         return False
+
+
+def _local_engine(key: str) -> bool:
+    """Can THIS process import the engine's packages? False in the frozen app."""
+    module = {"indicf5": "transformers", "xtts": "TTS"}.get(key, "")
+    return bool(module) and _importable(module)
+
+
+def _sidecar_speak(text: str, lang: str, ref: Path, wav: str, engine: str, engmod) -> bool:
+    """One sentence through the app's private engine folder, then play the wav."""
+    out = wav or str(voice_dir() / f"last_{engine}.wav")
+    got = engmod.sidecar_speak(text, lang, str(ref), transcript() or "", out, engine)
+    if not got.get("ok"):
+        return False
+    return True if wav else _play_file(Path(got["wav"] or out))
 
 
 def _indicf5(text: str, lang: str, ref: Path, wav: str) -> bool:

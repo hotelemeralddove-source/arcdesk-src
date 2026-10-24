@@ -91,6 +91,86 @@ person never said is the one genuinely harmful thing this feature can do.
 
 ---
 
+## 1b. Two different voices — Settings → Voice → **Voices…**
+
+One screen, two lists. They answer two different questions and they are not the same list:
+
+| | question | who can be on it |
+|---|---|---|
+| **1 · Who may command it** | whose voice is obeyed? | **any number of people** — you, your family. Add a recording of each. |
+| **2 · The voice ARC answers in** | which voice speaks the reply? | **any voice you have a recording of** — yours, or a completely different one (a film voice, a friend's, whoever said yes). |
+
+So: *command in your voice, reply in the voice you chose*. That is the point — and the
+reply never falls back to a robotic TTS while claiming to be that voice: if no clone engine
+is installed, ARC says **"reply voice: the system voice"** in words.
+
+Both are in the app, both are per machine, and the app now *says* which reply voice is
+active — one line, right under the voice section:
+
+```
+Reply voice: your own recording, spoken by indicf5 (9.2 s reference).
+Reply voice: the system voice — no reply voice added yet (Settings → Voice → Voices…).
+Reply voice: the system voice — a clip is added, but no engine is installed yet
+             (Settings → Voice → Get the reply-voice engine…).
+```
+
+### Adding a reply voice (any voice)
+
+1. **Settings → Voice → Voices…**
+2. In *2 · The voice ARC answers in*: type a name, click **Add a voice…**, pick the
+   recording (WAV/MP3/MP4), type the words it says, choose Tamil / Hindi / English.
+3. It is graded with numbers (length, grade, SNR) and stored as its own file.
+4. **Answer in this voice** — from now on every reply uses it. **Hear it** speaks a line.
+
+Two clips of two different people can sit side by side and you can switch between them in
+one click. Removing the one in use falls back to another, never to silence.
+
+### The engine that makes it a person — one button
+
+A cloned voice is not a setting, it is a model. **Settings → Voice → "Get the reply-voice
+engine…"**, or the same button inside the voice library:
+
+| engine | languages | size | one-off download |
+|---|---|---|---|
+| **IndicF5** | Tamil, Hindi | ~1.5 GB | tick, press Install, watch the lines scroll |
+| **XTTS-v2** | English | ~1.9 GB | same |
+
+- **Stop** works — and then the app says "stopped", never "installed".
+- Nothing counts as ready until the **weights** are on disk, not just the package.
+- A failure keeps the real error line on screen instead of "something went wrong".
+- Downloaded once, kept on this computer. Nothing is installed globally.
+
+**The installed `.exe` can do this too.** It cannot import a package that arrives later
+(and torch inside the installer would add ~2 GB), so the app borrows the Python already on
+the computer, builds a **private folder** of its own (`ArcDesk\engine_env`), installs the
+engine there, and speaks by handing one sentence to `tools/clone_speak.py` with that
+interpreter. One button from your side; nothing on PATH, nothing global. If the computer
+has no Python at all, the dialog says that in one sentence and points at python.org — it
+does not pretend, and the free piper voice keeps working meanwhile.
+
+**Speed, said plainly:** cloning on a CPU takes seconds per sentence. That is the model,
+not a bug. On a GPU it is instant. ARC keeps answering in the free voice until the engine
+is ready, and says which voice it is using.
+
+### Answers in my voice (the clone)
+
+1. **Settings → Voice → Use my voice for replies…**
+2. *Choose a recording…* — a WAV/MP3/MP4 of yourself, ideally **10–12 s**, one voice,
+   no music, quiet room. Tamil or Hindi typed in the *transcript* box (IndicF5 needs the
+   words); pick the language, or leave *Auto* and it reads the script.
+3. **Add a voice…** — it prints the length, a grade and a measured SNR, and tells you
+   honestly when the clip is too short (`short` = clean but under 8 s).
+4. **Answer in this voice** — every reply uses it from now on. **Hear it** speaks one line.
+5. Two clips of two different people can sit side by side; switching is one click, and
+   removing the one in use falls back to another — never to silence.
+
+The one thing the app cannot invent: a cloned voice needs a neural engine installed.
+**Settings → Voice → "Get the reply-voice engine…"** — IndicF5 (~1.5 GB) for
+**Tamil/Hindi**, XTTS (~1.9 GB) for **English**, installed from inside the app with live
+output and a Stop button (see §1c). Without it ARC says "reply voice: the system voice"
+instead of quietly answering in a stranger's voice. Piper (the offline fallback) is a *real* Tamil voice but
+**not yours**, and the status line names it as such.
+
 ## 2. Only your voice wakes it, on this computer
 
 ### When, and where — the short answer

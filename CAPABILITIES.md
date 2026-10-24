@@ -393,6 +393,66 @@ unknown at build time, discovered at runtime.
 
 ---
 
+## Wave 21 — the neural engine, installed from inside the app
+
+The user's sentence: *"Clone panna neural engine thevai. add this also."* A cloned voice
+is not a preference, it is a model — and the app used to answer that with "run
+install_clone.bat". Now it answers with a button.
+
+- **new `arcdesk/engines.py`** — one module owns the whole "get the model" job:
+  `status()` (what is installed, how big, why not), `method()` (how *this* build can
+  install anything), `install()` (pip, then the weights, streaming every line),
+  `sidecar_speak()` (one sentence, one wav). Four rules are encoded, not documented:
+  nothing is ready until the **weights** are on disk, a failure keeps the real error
+  line, a **cancelled** install is never reported as installed, and every size is stated
+  before the download starts.
+- **new `widgets/engine_dialog.py`** — Settings → Voice → **"Get the reply-voice
+  engine…"**, and the same dialog from the voice library. One entry per engine
+  (IndicF5 · Tamil/Hindi · 1.5 GB · XTTS-v2 · English · 1.9 GB), a button that carries the
+  size, live output, a **Stop** that really stops, and a verdict that is either "ready" or
+  the real reason — never a spinner that ends in nothing.
+- **the installed `.exe` can do it too, honestly** — a frozen PyInstaller app cannot
+  import a package installed later, and torch inside the installer would add ~2 GB. So
+  the app borrows a Python already on the computer, builds a **private environment** in
+  the user's data folder (`ArcDesk/engine_env`), installs the engine there, and speaks by
+  handing one sentence to **new `tools/clone_speak.py`** with that interpreter (shipped
+  inside the frozen app by the spec). Still one button; nothing global, nothing on PATH.
+  With no Python on the machine the dialog says exactly that and points at python.org —
+  it does not pretend.
+- **new `tests/test_engines.py`** (10 sections, both child-process steps faked): sizes and
+  languages before download, packages-then-weights ordering, a weights failure that must
+  not read as success, Stop that must not read as success, the frozen route (no Python /
+  Python found), the private-folder install, the sentence actually reaching
+  `clone_speak.py`, `route("ta")` switching over only once the folder is ready, and the
+  dialog's three verdicts.
+
+## Wave 20 — the reply voice, in the app
+
+The user's sentence: *"jarvis ku nan than command kodupen, so enoda voice ku athu respond
+pananum."* Two voices, two questions — and until now only one of them had a button.
+
+- **new `arcdesk/voicelib.py` + `widgets/voicelib_dialog.py`** — Settings → Voice →
+  **"Voices…"** with two lists, because there are two questions:
+  *who may command ARC* (any number of people, enrolled from a recording via
+  `voiceid`, and `verify()` accepts the best match) and *which voice it answers in* (any
+  clip you have — yours, or someone else's, each kept as its own graded file with its
+  transcript and language). The chosen reply clip is mirrored to `reference.wav`, so the
+  daemon and the CLI keep working off one source of truth.
+- **new `tests/test_voicelib.py`** (8 sections, fake speaker engine + fake clone engine):
+  adding two reply voices, switching between them, removing the active one without
+  dangling the reference, enrolling two command voices, a different voice being refused,
+  the dialog's two lists, and that the app never calls the system voice by your chosen
+  name.
+- **the app now states its reply voice in one line**: *"Reply voice: your own recording,
+  spoken by indicf5"* or *"…the system voice — no clone engine installed (run
+  install_clone.bat)"*. The question "why is the reply in a different voice?" can no longer
+  be answered by guessing.
+- **`ai.voice_clone` is a switch you can reach**, not a key in a JSON file.
+- **62 tests.**
+- **the workflow was simplified** to install → build → zip → upload. A blocking test step
+  had cost four builds; the installer is now always produced, with a portable zip as the
+  fallback that cannot fail.
+
 ## Wave 19 — the dependency lie, and a red run that explains itself
 
 The third CI run got all the way to the tests: **48/60**, and the loudest line was
@@ -481,7 +541,7 @@ failure was real and none of them could appear on Linux:
 - **bug fixed with a real model**: sherpa-onnx 1.13.x renamed `compute_embedding` →
   `compute`, which made every embedding `None` and enrolment silently fail.
   Verified end-to-end: same voice **0.70–0.80**, another voice **0.03–0.16**.
-- **2 new tests** (`test_openmode.py`, `test_voicelock_gui.py`) → 60 tests
+- **2 new tests** (`test_openmode.py`, `test_voicelock_gui.py`) → 61 tests
 - **the package was actually built and run** (Linux, same spec): two real build bugs found
   and fixed — `ROOT` resolved two parents too high (PyInstaller: *"script run.py not
   found"*, which would have broken `build_all.bat` on Windows too) and `tools/doctor.py`
@@ -506,7 +566,7 @@ failure was real and none of them could appear on Linux:
   mode and the multi-machine tests honest.
 - **`MOVE.md`** — the two-question guide: program on B, data via one zip, models
   re-downloaded, voice lock enrolled fresh.
-- **1 new test** (`test_move.py`) → 60 tests.
+- **1 new test** (`test_move.py`) → 61 tests.
 
 ## Wave 14 — three languages, and clips that are measured
 
@@ -525,7 +585,7 @@ code, and the thing that decides clone quality is measured instead of guessed.
   Measured on a 50 Hz-hum clip: **SNR 12.2 → 20.6 dB, poor → workable**.
 - **`voice_setup.py status`** shows the promise, the reference length, the grade and
   what to fix, instead of a bare "ready".
-- **1 new test** (`test_clean.py`, offline; ffmpeg optional) → 60 tests.
+- **1 new test** (`test_clean.py`, offline; ffmpeg optional) → 61 tests.
 
 ## Wave 13 — your voice out, your voice in
 
@@ -553,7 +613,7 @@ voice-la mattum work aaganum"*.
   name and score, and sends "not your voice — ignored" instead of acting.
 - **honest failure**: no engine, no profiles, or a broken model all fall back to the
   plain wake word **and say so**. A lock that shuts the owner out is a bug.
-- **2 new tests** (`test_clone.py`, `test_voiceid.py`, both offline) → 60 tests.
+- **2 new tests** (`test_clone.py`, `test_voiceid.py`, both offline) → 61 tests.
 
 ## Wave 12 — real photographs, not pretend ones
 
@@ -572,7 +632,7 @@ honest free answer.
 - **Lite routing**: `real photo of …`, `picture of …`, `… photo`, Tamil/Hindi animal words
   (`aane`, `haathi`) are mapped before searching; `make me an image of …` still goes to the
   generator, `draw …` still goes to the sketch engine.
-- **1 new test** `tests/test_photo.py` (offline, injected API) → 60 tests.
+- **1 new test** `tests/test_photo.py` (offline, injected API) → 61 tests.
 
 
 ## 2. Reactions — what happens on its own

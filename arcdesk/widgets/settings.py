@@ -144,12 +144,26 @@ class SettingsDialog(QDialog):
         self.voice_status = _note("")
         form.addRow(self.voice_status)
 
+        self.reply_note = _note("")
+        form.addRow(self.reply_note)
+
+        self.open_my_voice = QPushButton("Voices — who commands, which voice replies…")
+        self.open_my_voice.setToolTip("Two lists: the voices allowed to command ARC, and "
+                                      "the voice it answers in (yours, or any clip you have).")
+        self.open_my_voice.clicked.connect(self.open_my_voice_dialog)
+        myvoice_row = QHBoxLayout()
+        myvoice_row.addWidget(self.open_my_voice)
+        myvoice_row.addStretch(1)
+        form.addRow(myvoice_row)
+
         btn_row = QHBoxLayout()
         test = QPushButton("Test wake (no mic)")
         test.clicked.connect(self.wake_test.emit)
         btn_row.addWidget(test)
-        install = QPushButton("Install voice backend…")
-        install.clicked.connect(self._install_voice_help)
+        install = QPushButton("Get the reply-voice engine…")
+        install.setToolTip("IndicF5 (Tamil/Hindi) and XTTS (English) — the models that make "
+                           "a cloned voice sound like the person. Installed from here.")
+        install.clicked.connect(self.open_engines)
         btn_row.addWidget(install)
         btn_row.addStretch(1)
         form.addRow(btn_row)
@@ -192,6 +206,14 @@ class SettingsDialog(QDialog):
                                "Nothing listens, nothing starts by itself. Double-click the "
                                "shortcut when you need me; every feature is there.")
 
+    def open_my_voice_dialog(self) -> None:
+        """Both lists: who may command ARC, and which voice it answers in."""
+        from .voicelib_dialog import VoiceLibraryDialog
+        dlg = VoiceLibraryDialog(self.cfg, self.theme, parent=self)
+        dlg.exec()
+        self.voice_on.setChecked(bool(self.cfg.get("ai", {}).get("voice", True)))
+        self._refresh_voice_status()
+
     def open_voice_lock(self) -> None:
         """Enrol this person's voice without leaving the app."""
         from .voicelock import VoiceLockDialog
@@ -231,6 +253,37 @@ class SettingsDialog(QDialog):
             f"speech model: {'present' if have_model else 'missing (~40 MB)'}",
         ]
         self.voice_status.setText("  ·  ".join(parts))
+        # ...and the honest answer to "which voice will actually answer me?"
+        reply = self.reply_voice_line()
+        if hasattr(self, "reply_note"):
+            self.reply_note.setText(reply)
+
+    def reply_voice_line(self) -> str:
+        """One sentence naming the voice ARC will answer in, right now.
+
+        Before this existed, the only way to find out was to make it speak and recognise
+        the voice — which is how someone ends up asking "why is the reply voice a
+        different voice?" The app now says it in words.
+        """
+        try:
+            from .. import clone, voicelib
+            ref = clone.reference()
+            chosen = voicelib.active_reply()
+            if not ref:
+                return ("Reply voice: the system voice — no reply voice added yet "
+                        "(Settings → Voice → Voices…).")
+            if not self.cfg.get("ai", {}).get("voice_clone", True):
+                return ("Reply voice: the system voice — “use my voice for replies” is "
+                        "switched off (a clip of you is imported and kept).")
+            ready = [k for k, v in clone.engines().items() if v.get("available")]
+            if not ready:
+                return ("Reply voice: the system voice — a clip of you is imported, but no "
+                        "clone engine is installed (run install_clone.bat).")
+            who = f"“{chosen['name']}”" if chosen else "your recording"
+            return (f"Reply voice: {who}, spoken by {' / '.join(ready)} "
+                    f"({clone.analyse(ref)['seconds']:.1f} s reference).")
+        except Exception as exc:                                     # noqa: BLE001
+            return f"Reply voice: could not check ({type(exc).__name__})."
 
     @staticmethod
     def _module_ok(name: str) -> bool:
@@ -239,6 +292,12 @@ class SettingsDialog(QDialog):
             return True
         except Exception:
             return False
+
+    def open_engines(self) -> None:
+        """The neural engine, installed from inside the app — one click, real output."""
+        from .engine_dialog import EngineDialog
+        EngineDialog(self.theme, parent=self).exec()
+        self._refresh_voice_status()
 
     def _install_voice_help(self) -> None:
         QMessageBox.information(

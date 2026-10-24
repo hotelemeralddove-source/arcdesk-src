@@ -49,6 +49,9 @@ sentence and points at the other two.
 | `packaging\build_all.bat` | Windows: builds both exes **and** `dist\ArcDeskSetup.exe` |
 | `bash packaging/build_all.sh` | Linux/macOS/CI: same spec, same bundle, `dist/ArcDesk-linux.tar.xz` (not the Windows installer) |
 | **Settings → System → "Visual effects"** | follow the mode / full / reduced / off — the one control that changes how much work a frame is |
+| **Settings → Voice → "Voices…"** | two lists: who may command ARC, and which voice it answers in (any clip — yours, or someone else's) |
+| **Settings → Voice → "Get the reply-voice engine…"** | IndicF5 (Tamil/Hindi, 1.5 GB) and XTTS (English, 1.9 GB), installed **from the app**, with live output and a Stop button |
+| `python tools\voice_setup.py import "myclip.mp3" --transcript "the words"` | same thing from the command line |
 | **Settings → Voice → "How ARC opens"** | desktop icon or voice — the same question the setup card asks |
 | **Settings → Voice → "Teach ARC my voice…"** | 3 takes of 4 s, in the app; then the "only my voice" switch |
 | `python tools\voice_setup.py selftest --against other.wav` | prove the lock with real audio: your held-out take must pass, another voice must fail |
