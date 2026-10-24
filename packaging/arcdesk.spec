@@ -119,10 +119,20 @@ if icon_arg is None:
 # usually picks them up, "usually" is not a promise, so they are collected on purpose and
 # shipped beside the exe. The finder lives in tools/preflight_win.py so it can be tested
 # from any platform.
-sys.path.insert(0, str(ROOT / "tools"))
+#
+# DO NOT put tools/ on sys.path to import it. It was done that way for one build, and it
+# broke the build in SIX seconds: tools/packaging.py shadowed the pip package `packaging`
+# that PyInstaller itself imports (`import packaging.requirements`), so the isolated
+# subprocess died with "No module named 'packaging.requirements'; 'packaging' is not a
+# package". A plain file load cannot shadow anything:
+import importlib.util as _ilu
+
 try:
-    from preflight_win import msvc_runtime_files
-    _msvc = msvc_runtime_files(sys.base_prefix)
+    _pf_spec = _ilu.spec_from_file_location("_arc_preflight",
+                                            ROOT / "tools" / "preflight_win.py")
+    _pf = _ilu.module_from_spec(_pf_spec)
+    _pf_spec.loader.exec_module(_pf)               # type: ignore[union-attr]
+    _msvc = _pf.msvc_runtime_files(sys.base_prefix)
 except Exception as _exc:                          # noqa: BLE001
     print(f"[spec] WARNING: could not look for the MSVC runtime ({_exc})")
     _msvc = []

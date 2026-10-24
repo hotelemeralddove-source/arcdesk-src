@@ -135,10 +135,13 @@ def check_output(cmd, **given):
 
 def describe() -> str:
     """One line for the diagnostics page — the question "will this flash?" answered."""
+    have = covered()
+    where = " (compiled build)" if frozen() and not _PATCHED else ""
     if not _is_win():
-        return "child processes: silent (nothing to hide on this platform)"
-    return (f"child processes: {len(_PATCHED)} of {len(_EXPECTED)} spawn sites route through "
-            f"quiet.py · CREATE_NO_WINDOW on every child · no console can appear")
+        return (f"child processes: {len(have)} of {len(_EXPECTED)} spawn sites route "
+                f"through quiet.py{where} · nothing to hide on this platform")
+    return (f"child processes: {len(have)} of {len(_EXPECTED)} spawn sites route through "
+            f"quiet.py{where} · CREATE_NO_WINDOW on every child · no console can appear")
 
 
 #: Modules that spawn children at runtime. Kept here so `quiet.describe()` and the
@@ -151,7 +154,14 @@ _EXPECTED = ("actions", "ai/mcp", "ai/tools", "ai/voice", "brain", "clone", "des
 
 
 def _patched() -> list[str]:
-    """Which runtime modules import this one — measured from the source, not assumed."""
+    """Which runtime modules import this one — measured from the source, not assumed.
+
+    In a frozen build (PyInstaller) there are no `.py` files to read: the modules live
+    inside the archive. Scanning then finds nothing, which used to make the doctor report
+    a false FAIL ("Silent spawns") in every packaged app. A frozen build is compiled from
+    this same tree, so the honest answer there is the declared list — and `frozen` says
+    which answer you are looking at.
+    """
     import pathlib
     root = pathlib.Path(__file__).resolve().parent
     found = []
@@ -164,6 +174,19 @@ def _patched() -> list[str]:
         if "import quiet" in text or " import quiet as " in text:
             found.append(name)
     return found
+
+
+def frozen() -> bool:
+    """True when this code is running from a PyInstaller build."""
+    return bool(getattr(sys, "frozen", False))
+
+
+def covered() -> list[str]:
+    """The modules we can vouch for: measured when the sources are readable, declared
+    when they are compiled into the archive."""
+    if _PATCHED:
+        return list(_PATCHED)
+    return list(_EXPECTED) if frozen() else []
 
 
 _PATCHED = _patched()

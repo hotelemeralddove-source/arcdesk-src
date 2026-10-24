@@ -732,6 +732,26 @@ pananum."* Two voices, two questions — and until now only one of them had a bu
   stubbed, so a `NameError` is a red test instead of a 2-second green step. It also checks
   what the spec asked for: two exes, `console=False`, onedir, an icon that exists, the
   MSVC runtime, the runtime hook, and the data files a frozen app cannot get otherwise.
+- **the second 2-second build (run #15), and the trap behind it**: fixing the missing
+  `import sys` exposed a worse one. The spec reached `tools/preflight_win.py` with
+  `sys.path.insert(0, "tools")`, and `tools/packaging.py` — *our* checker — then shadowed
+  the pip package `packaging` that PyInstaller imports (`import packaging.requirements`),
+  so its isolated build subprocess died with
+  `ModuleNotFoundError: 'packaging is not a package'`. Reproduced here by instrumenting
+  PyInstaller's own child process; the diagnostic line that gave it away was
+  `packaging in modules=<module 'packaging' from .../tools/packaging.py>`.
+  Fixed by loading the helper with `importlib.util.spec_from_file_location` — **no
+  `sys.path` mutation anywhere in the spec or in `run.py --doctor`** — plus three guards:
+  `tools/preflight_win.py` now detects a **shadowing** file and fails the build when
+  something actually puts that folder on `sys.path` (and says 'latent only' when nothing
+  does); `tests/test_spec_exec.py` asserts the spec contains no `sys.path.insert` and that
+  `import packaging.requirements` still works after the spec has run; and the workflow's
+  start-test now **waits** for the exe to exit and requires the doctor's `RESULT:` line.
+  Proven the right way: a full PyInstaller build now completes here (75 s) and the
+  packaged binary answers `--doctor` with `RESULT: usable, with 1 warning(s)`.
+- **frozen builds stop lying about the silent-spawn scan**: `quiet.covered()` reads the
+  sources in a checkout and falls back to the declared list inside a PyInstaller archive,
+  so the doctor says `23 of 23 … (compiled build)` instead of a false `[FAIL]`.
 - **72 tests.**
 - **the workflow was simplified** to install → build → zip → upload. A blocking test step
   had cost four builds; the installer is now always produced, with a portable zip as the

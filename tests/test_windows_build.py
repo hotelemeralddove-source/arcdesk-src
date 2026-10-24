@@ -103,8 +103,15 @@ check("the list matches what Qt actually needs",
 
 print("\n5) the spec ships them (a static fact, checkable anywhere)")
 spec = (ROOT / "packaging" / "arcdesk.spec").read_text(encoding="utf-8")
-check("the spec asks preflight_win for the runtime",
-      "from preflight_win import msvc_runtime_files" in spec, True)
+# The spec loads the helper BY FILE PATH — importing it by name would need tools/ on
+# sys.path, and tools/packaging.py would then shadow PyInstaller's own `packaging`
+# dependency (that is run #15). So the assertion is about the file load, not the import.
+check("the spec loads preflight_win by file path (never via sys.path)",
+      'spec_from_file_location("_arc_preflight"' in spec, True)
+check("…and does not import it by module name",
+      "from preflight_win import" in spec, False)
+check("…and never touches sys.path",
+      "sys.path.insert" not in spec.split("import importlib.util")[1], True)
 check("…and puts them in binaries", "binaries=list(_msvc)" in spec, True)
 check("…and says so when it finds none",
       "no MSVC DLLs found next to this Python" in spec, True)
@@ -281,6 +288,10 @@ check("the icon is checked (its absence is what the user saw on the desktop)",
       "arc_icon.ico" in w, True)
 check("the built exe is actually STARTED on the runner",
       "Start-Process" in w and "--doctor" in w, True)
+check("…and the step WAITS for it to exit instead of guessing with a sleep",
+      "WaitForExit(180000)" in w, True)
+check("…and requires the doctor's RESULT line before it believes anything",
+      'if ($text -notmatch "RESULT:")' in w, True)
 check("…and its log is read, so a silent crash fails the build",
       "arcdesk.log" in w and "Traceback" in w, True)
 check("…and that log is uploaded either way", "arcdesk-run-log" in w, True)

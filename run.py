@@ -61,8 +61,13 @@ def main(argv: list[str] | None = None) -> int:
         # In a frozen build __file__ points into the temp/install internals, so the
         # tools folder has to be found from the bundle root (PyInstaller's _MEIPASS).
         base = Path(getattr(sys, "_MEIPASS", "") or Path(__file__).resolve().parent)
-        sys.path.insert(0, str(base / "tools"))
-        import doctor
+        # Loaded by file path, NOT by putting tools/ on sys.path: that folder contains
+        # tools/packaging.py, which would then shadow the pip package `packaging` for
+        # everything imported afterwards. That is exactly how the GitHub build broke.
+        import importlib.util as _ilu
+        _spec = _ilu.spec_from_file_location("_arc_doctor", base / "tools" / "doctor.py")
+        doctor = _ilu.module_from_spec(_spec)
+        _spec.loader.exec_module(doctor)            # type: ignore[union-attr]
         return doctor.run()
 
     # Bundled tools (ffmpeg, node) live inside the install. Adding them to THIS process's

@@ -110,40 +110,35 @@ jobs:
         shell: pwsh
         run: |
           # This is the step that would have caught run #14. A frozen windowed app that
-          # dies at startup says nothing, so we ask it to do a real job (--doctor) and
-          # then look for the log it writes while working.
+          # dies at start-up says nothing, so we give it a real job (--doctor), WAIT for
+          # it to finish, then read the log it wrote while working.
           $home_ = Join-Path $env:RUNNER_TEMP "arctest"
           New-Item -ItemType Directory -Force -Path $home_ | Out-Null
           $env:ARCDESK_HOME = $home_
           $log = Join-Path $home_ "ArcDesk\logs\arcdesk.log"
 
           $proc = Start-Process -FilePath "dist\ArcDesk\ArcDesk.exe" -ArgumentList "--doctor" -PassThru
-          $deadline = (Get-Date).AddSeconds(120)
-          while ((Get-Date) -lt $deadline) {
-            if (Test-Path $log) {
-              $text = Get-Content $log -Raw -ErrorAction SilentlyContinue
-              if ($text -match "doctor|ArcDesk start") { break }
-            }
-            if ($proc.HasExited) { break }
-            Start-Sleep -Milliseconds 500
+          $finished = $proc.WaitForExit(180000)          # 3 minutes is generous
+          if (-not $finished) {
+            Stop-Process -Id $proc.Id -Force -ErrorAction SilentlyContinue
+            throw "the built exe did not finish --doctor within 3 minutes"
           }
-          Start-Sleep -Seconds 2          # let the last lines land
-          if (-not $proc.HasExited) { Stop-Process -Id $proc.Id -Force -ErrorAction SilentlyContinue }
+          "exit code: $($proc.ExitCode)"
 
           if (-not (Test-Path $log)) {
             throw "the built exe wrote no log at all - it never got as far as start-up"
           }
           "----- arcdesk.log -----"
-          Get-Content $log -Tail 40
+          Get-Content $log -Tail 60
           "-----------------------"
           $text = Get-Content $log -Raw
           if ($text -match "uncaught|Traceback") {
             throw "the exe started and then crashed - see the traceback above"
           }
-          if ($text -notmatch "doctor|checks") {
-            throw "the log has no sign of --doctor running, so the frozen app did not start"
+          if ($text -notmatch "RESULT:") {
+            throw "the doctor never reached its RESULT line, so the frozen app did not really start"
           }
-          "PROOF: the packaged exe starts and runs Python code on Windows."
+          "PROOF: the packaged exe starts, imports everything and runs Python on Windows."
 
       - name: 5b. keep the log whatever happened
         if: always()

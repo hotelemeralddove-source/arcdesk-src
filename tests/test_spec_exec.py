@@ -183,6 +183,64 @@ try:
 except Exception as exc:                                # noqa: BLE001
     print(f"   ..   could not read PyInstaller's source ({type(exc).__name__}) — skipped")
 
+print("\n6b) the spec does not put anything on sys.path (the 6-second build)")
+import ast as _ast  # noqa: E402
+
+tree = _ast.parse(SPEC.read_text(encoding="utf-8"))
+inserts = [n.lineno for n in _ast.walk(tree)
+           if isinstance(n, _ast.Call) and isinstance(n.func, _ast.Attribute)
+           and n.func.attr == "insert"
+           and isinstance(n.func.value, _ast.Attribute)
+           and n.func.value.attr == "path"
+           and isinstance(n.func.value.value, _ast.Name)
+           and n.func.value.value.id == "sys"]
+check("no `sys.path.insert(...)` anywhere in the spec", inserts, [])
+# the regression itself: after the spec has run, PyInstaller's own import must work.
+try:
+    import packaging.requirements  # noqa: F401
+    import_ok = True
+except Exception as exc:                                # noqa: BLE001
+    import_ok = f"{type(exc).__name__}: {exc}"
+check("`import packaging.requirements` still works (PyInstaller's own dependency)",
+      import_ok, True)
+check("…which is what tools/packaging.py would have broken",
+      (ROOT / "tools" / "packaging.py").is_file(), True)
+
+print("\n6c) the preflight can see that trap, armed and disarmed")
+# Loaded by file path on purpose — importing it by name would need tools/ on sys.path,
+# which is the very trap this section is about.
+import importlib.util as _ilu  # noqa: E402
+
+_pf_spec = _ilu.spec_from_file_location("_arc_preflight_test",
+                                        ROOT / "tools" / "preflight_win.py")
+pre = _ilu.module_from_spec(_pf_spec)
+_pf_spec.loader.exec_module(pre)                             # type: ignore[union-attr]
+
+real_verdict = pre.check_shadowing()
+check("today: the collision is latent, not armed (nothing adds tools/ to sys.path)",
+      real_verdict[0] in (pre.INFO, pre.PASS), True)
+with tempfile.TemporaryDirectory() as tmp:
+    fake = Path(tmp)
+    (fake / "tools").mkdir()
+    (fake / "tools" / "packaging.py").write_text("x = 1\n", encoding="utf-8")
+    (fake / "packaging").mkdir()
+    spec_file = fake / "packaging" / "arcdesk.spec"
+    spec_file.write_text("import sys\nsys.path.insert(0, str(ROOT / 'tools'))\n",
+                         encoding="utf-8")
+    saved_root = pre.ROOT
+    try:
+        pre.ROOT = fake
+        armed = pre.check_shadowing()
+        check("armed: the preflight FAILS and names the reason", armed[0], pre.FAIL)
+        check("…and says 'this is the 6-second build'",
+              "6-second build" in armed[1] or "6-second" in armed[1], True)
+        spec_file.write_text("import sys\n", encoding="utf-8")
+        disarmed = pre.check_shadowing()
+        check("disarmed: it drops to INFO instead of blocking a good build",
+              disarmed[0], pre.INFO)
+    finally:
+        pre.ROOT = saved_root
+
 print("\n7) the spec is now self-defending")
 text = SPEC.read_text(encoding="utf-8")
 check("it imports sys at the top", text.splitlines()[22].startswith("import sys"), True)

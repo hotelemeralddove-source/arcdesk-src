@@ -259,7 +259,9 @@ def check_quiet() -> None:
     """Will a command prompt appear behind the app? The one question this answers."""
     try:
         from arcdesk import quiet
-        add(PASS if bool(quiet._PATCHED) else FAIL, "Silent spawns", quiet.describe())
+        # `covered()` is the honest measure: read from source in a checkout, declared in
+        # a compiled build (where there are no .py files to read).
+        add(PASS if quiet.covered() else FAIL, "Silent spawns", quiet.describe())
         from arcdesk import logs
         add(PASS, "Console output", logs.describe())
     except Exception as exc:                          # noqa: BLE001

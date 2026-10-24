@@ -211,19 +211,158 @@ def check_inno() -> tuple[str, str, str]:
 
 
 def check_assets() -> tuple[str, str, str]:
+    """The icon is required, not decoration.
+
+    Without `shots/arc_icon.ico` PyInstaller does not complain — it silently uses its
+    own icon, so the installed app's desktop shortcut shows a yellow-and-blue Python-ish
+    box and the user reasonably concludes they installed a Python script that does not
+    run. A missing icon is a build failure for that reason alone.
+    """
     needed = {"run.py": ROOT / "run.py", "arc_daemon.py": ROOT / "arc_daemon.py",
-              "icon": ROOT / "shots" / "arc_icon.ico",
               "Inno script": ROOT / "packaging" / "arcdesk.iss"}
     missing = [name for name, path in needed.items() if not path.is_file()]
+    icon = ROOT / "shots" / "arc_icon.ico"
+    if not icon.is_file():
+        return (FAIL, "shots/arc_icon.ico is missing",
+                "Run  python tools\\make_icon.py  to regenerate it. Without it the "
+                "build silently uses PyInstaller's own icon and the desktop shortcut "
+                "looks like a Python script")
     if missing:
         return (WARN, "missing: " + ", ".join(missing),
-                "The build continues without them (the icon falls back), but "
-                "make_installer.bat needs the .ico and the .iss")
+                "The app still builds, but make_installer.bat needs the .iss")
     return (PASS, "run.py, arc_daemon.py, icon, Inno script all present", "")
+
+
+def _spec_outside(root: Path, stem: str):
+    """find_spec for `stem`, with this repo removed from sys.path.
+
+    The repo root itself contains a folder called `packaging/`, so asking from here would
+    answer "namespace package, origin None" — which hid the bug this check exists for.
+    """
+    import importlib.util as ilu
+    saved = list(sys.path)
+    try:
+        keep = []
+        for entry in sys.path:
+            if entry in ("", "."):
+                continue
+            try:
+                if Path(entry).resolve().is_relative_to(root.resolve()):
+                    continue
+            except (OSError, ValueError):
+                pass
+            keep.append(entry)
+        sys.path[:] = keep
+        return ilu.find_spec(stem)
+    except Exception:                                  # noqa: BLE001
+        return None
+    finally:
+        sys.path[:] = saved
+
+
+#: Files that decide what is on sys.path while PyInstaller or the app runs.
+_PATH_DECIDERS = ("packaging/arcdesk.spec", "run.py", "arc_daemon.py",
+                  "ArcDesk.pyw", ".github/workflows/build-windows.yml")
+
+
+def active_shadow_path(root: Path) -> list[str]:
+    """Does anything actually put `tools/` (or the root) on sys.path?
+
+    A name collision is harmless until someone adds the folder to the path. This reads the
+    files that would do it, so the answer is "is the trap armed", not "does a name clash".
+    """
+    armed: list[str] = []
+    for name in _PATH_DECIDERS:
+        path = root / name
+        try:
+            text = path.read_text(encoding="utf-8", errors="replace")
+        except OSError:
+            continue
+        for line in text.splitlines():
+            stripped = line.strip()
+            if stripped.startswith(("#", "//", ";", "REM")):
+                continue
+            if "sys.path.insert" in stripped and ("tools" in stripped or '""' in stripped):
+                armed.append(f"{name}: {stripped[:80]}")
+            if "PYTHONPATH" in stripped and ("tools" in stripped or "pathex" in stripped):
+                armed.append(f"{name}: {stripped[:80]}")
+    return armed
+
+
+def shadow_report(root: Path) -> list[tuple[str, str, str]]:
+    """Every repo file/folder whose name shadows an importable module.
+
+    Returns (severity, what, why) — severity is FAIL for `tools/*.py` (a folder we may put
+    on sys.path) and WARN for a folder at the repo root.
+    """
+    found: list[tuple[str, str, str]] = []
+    candidates: list[tuple[Path, str]] = []
+    for path in sorted((root / "tools").glob("*.py")):
+        candidates.append((path, FAIL))
+    for path in sorted(root.glob("*.py")):
+        if path.name not in {"setup.py", "conftest.py"}:
+            candidates.append((path, FAIL))
+    for path in sorted(p for p in root.iterdir() if p.is_dir()):
+        if path.name.startswith((".", "_")) or path.name in {"dists", "dist"}:
+            continue
+        candidates.append((path, WARN))
+
+    for path, severity in candidates:
+        stem = path.stem if path.is_file() else path.name
+        if not stem.isidentifier():
+            continue
+        spec = _spec_outside(root, stem)
+        origin = getattr(spec, "origin", None)
+        if origin is None or str(origin) == "namespace":
+            continue
+        origin_path = Path(origin)
+        if origin_path.resolve().is_relative_to(root.resolve()):
+            continue                      # it is this repo's own module, nothing shadowed
+        where = origin_path.parent.name
+        kind = "file" if path.is_file() else "folder"
+        found.append((severity,
+                      f"{path.relative_to(root)} (a {kind}) shadows the module `{stem}` "
+                      f"from {where}/",
+                      "Rename it, or load it by file path instead of putting its folder "
+                      "on sys.path"))
+    return found
+
+
+def check_shadowing() -> tuple[str, str, str]:
+    """Does a file in this repo shadow a library PyInstaller imports?
+
+    This bug has already cost two builds. `tools/packaging.py` is *our* checker, but its
+    name collides with the pip package `packaging`, which PyInstaller itself imports
+    (`import packaging.requirements`). Put `tools/` on `sys.path` — which is what the spec
+    did to reach preflight_win.py — and the isolated build subprocess dies in six seconds:
+
+        ModuleNotFoundError: No module named 'packaging.requirements';
+        'packaging' is not a package
+
+    A plain file-name collision is enough to be worth refusing, because the alternative is
+    finding out from a red build twenty minutes later.
+    """
+    rows = shadow_report(ROOT)
+    armed = active_shadow_path(ROOT)
+    if rows and armed:
+        names = ", ".join(row[1].split(" (")[0] for row in rows)
+        return (FAIL, f"{names} — AND something puts that folder on sys.path "
+                      f"({armed[0]}). This is the 6-second build, exactly",
+                "Load the helper by file path (importlib.util.spec_from_file_location) "
+                "instead of adding tools/ to sys.path, or rename the file. Never leave "
+                "both in place")
+    if rows:
+        names = ", ".join(row[1].split(" (")[0] for row in rows)
+        return (INFO, f"latent only: {names} would collide if its folder were put on "
+                      f"sys.path — nothing does that today",
+                "")
+    scripts = len(list((ROOT / "tools").glob("*.py"))) + len(list(ROOT.glob("*.py")))
+    return (PASS, f"{scripts} scripts and folders checked, nothing shadows an import", "")
 
 
 CHECKS = (
     ("Python", check_python),
+    ("Shadowing", check_shadowing),
     ("MSVC runtime", check_runtime),
     ("PySide6", check_qt),
     ("PyInstaller", check_pyinstaller),
