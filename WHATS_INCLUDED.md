@@ -14,15 +14,15 @@ Read this once, after installing. Everything in section A is already on your lap
 
 | library | pip name | used for | in this sandbox | in the .exe | needed to start |
 |---|---|---|---|---|---|
-| `PySide6` | `PySide6-Essentials` | the whole interface | yes | yes — hard dependency | yes |
-| `numpy` | `numpy` | audio buffers, image maths | yes | yes — hard dependency | yes |
-| `psutil` | `psutil` | CPU/RAM readings, process list | yes | yes — hard dependency | yes |
-| `PIL` | `Pillow` | screenshots, image edits, art | yes | yes — hard dependency | yes |
-| `pypdf` | `pypdf` | reading PDFs at the moment you ask | yes | yes — hard dependency | no |
-| `docx` | `python-docx` | Word files | yes | yes — hard dependency | no |
-| `openpyxl` | `openpyxl` | Excel files | yes | yes — hard dependency | no |
-| `pptx` | `python-pptx` | PowerPoint files | yes | yes — hard dependency | no |
-| `mutagen` | `mutagen` | music metadata, playback info | yes | yes — hard dependency | no |
+| `PySide6` | `PySide6-Essentials` | the whole interface | yes | yes | yes |
+| `numpy` | `numpy` | audio buffers, image maths | yes | yes | yes |
+| `psutil` | `psutil` | CPU/RAM readings, process list | yes | yes | yes |
+| `PIL` | `Pillow` | screenshots, image edits, art | yes | yes | yes |
+| `pypdf` | `pypdf` | reading PDFs at the moment you ask | yes | yes | no |
+| `docx` | `python-docx` | Word files | yes | yes | no |
+| `openpyxl` | `openpyxl` | Excel files | yes | yes | no |
+| `pptx` | `python-pptx` | PowerPoint files | yes | yes | no |
+| `mutagen` | `mutagen` | music metadata, playback info | yes | yes | no |
 | `vosk` | `vosk` | the wake word (ears) | yes | yes — collected by the spec | no |
 | `sounddevice` | `sounddevice` | the microphone | yes, but import fails here (OSError) | yes — collected by the spec | no |
 | `sherpa_onnx` | `sherpa-onnx` | voice lock — who may command it | yes | yes — collected by the spec | no |
@@ -59,7 +59,7 @@ The pattern for all three: **a compiled `.exe` cannot import a package that arri
 | question | answer |
 |---|---|
 | does every `arcdesk` module ship? | yes — 112 of 112, collected automatically |
-| does the build install every hard dependency? | yes (`PySide6-Essentials, psutil, Pillow, numpy, pypdf, python-docx, openpyxl, python-pptx, mutagen, pyinstaller>=6`) |
+| does the build install every hard dependency? | yes (`PySide6`, on, a, laptop, pulls, it,, and, the, same, spec, then, produces`) |
 | are the voice libraries attempted separately? | yes — sounddevice, vosk, sherpa-onnx |
 | does the spec collect the wake engine? | yes |
 | can a feature added later be added to an installed .exe? | yes, through the private environment; never by copying files into the .exe |

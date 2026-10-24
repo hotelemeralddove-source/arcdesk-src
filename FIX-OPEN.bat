@@ -89,6 +89,25 @@ if errorlevel 1 (
   echo        be there now, and "Arc Desk" on the Desktop opens it from now on.
 )
 
+REM A process is not a window. "Running" and "visible" are two different questions, and
+REM only this one decides whether the app is usable. MainWindowHandle is 0 when the
+REM process has nothing on screen at all.
+>>"%REPORT%" echo.
+>>"%REPORT%" echo == 4b. is there a WINDOW, not just a process
+powershell -NoProfile -Command "Get-Process -Name ArcDesk -ErrorAction SilentlyContinue | ForEach-Object { 'pid ' + $_.Id + '  window handle ' + $_.MainWindowHandle + '  title: ' + $_.MainWindowTitle }" >>"%REPORT%" 2>&1
+for /f "delims=" %%L in ('powershell -NoProfile -Command "$p = Get-Process -Name ArcDesk -ErrorAction SilentlyContinue; if (-not $p) { 'NO-PROCESS' } elseif (($p | Where-Object { $_.MainWindowHandle -ne 0 }).Count -gt 0) { 'WINDOW-YES' } else { 'WINDOW-NO' }"') do set "WINDOWSTATE=%%L"
+echo        window: %WINDOWSTATE%
+>>"%REPORT%" echo window state: %WINDOWSTATE%
+if "%WINDOWSTATE%"=="WINDOW-NO" (
+  >>"%REPORT%" echo The process is alive but owns NO window. That is the OLD build: it never
+  >>"%REPORT%" echo shows its window when the settings file says hidden, and its
+  >>"%REPORT%" echo Ctrl+Alt+J is registered by nothing. A NEW build is needed, not a fix
+  >>"%REPORT%" echo of these files.
+  echo.
+  echo        The app is running but owns NO window. So this copy will never show one -
+  echo        it is the old build. Send me the report; the new build fixes it.
+)
+
 set "ARCLOG=%APPDATA%\ArcDesk\logs\arcdesk.log"
 if exist "%ARCLOG%" (
   >>"%REPORT%" echo.

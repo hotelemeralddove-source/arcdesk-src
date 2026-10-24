@@ -124,6 +124,42 @@ jobs:
           }
 
       # ----------------------------------------------------- 5. does it actually run?
+      - name: 4c. how big is it, and what is inside
+        shell: pwsh
+        run: |
+          # A download is something a person waits for and stores. Two rules here:
+          #   * print the 15 biggest files, so a size jump has a name and not a shrug;
+          #   * fail loudly if the payload is bigger than it should be. The 92 MB download
+          #     was mostly Qt itself (Essentials: ~200 MB installed) plus three speech
+          #     libraries and numpy. requirements.txt already pins PySide6-Essentials, so
+          #     the Addons wheel (WebEngine, Quick, 3D) was never the problem - but a plain
+          #     `pip install PySide6` on a laptop pulls it, and the same spec then produces
+          #     a far bigger build. The excludes in packaging/arcdesk.spec stop that
+          #     happening by accident, and this step makes any size jump visible.
+          $files = Get-ChildItem dist\ArcDesk -Recurse -File
+          $mb = ($files | Measure-Object -Property Length -Sum).Sum / 1MB
+          "payload: {0:N1} MB in {1:N0} files" -f $mb, $files.Count
+          ""
+          "the 15 biggest:"
+          $files | Sort-Object Length -Descending | Select-Object -First 15 | ForEach-Object {
+            "   {0,8:N1} MB  {1}" -f ($_.Length / 1MB), $_.FullName.Replace((Get-Location).Path + "\dist\ArcDesk\", "")
+          }
+          ""
+          $qt = if (Test-Path dist\ArcDesk\_internal\PySide6) {
+            (Get-ChildItem dist\ArcDesk\_internal\PySide6 -Recurse -File | Measure-Object Length -Sum).Sum / 1MB
+          } else { 0 }
+          "Qt inside that: {0:N1} MB" -f $qt
+
+          # A watch-line, not a wall. Size is worth reporting and worth noticing when it
+          # jumps - but a big download must never be the reason a working exe is withheld,
+          # so this warns and carries on (the run stays green and still ships).
+          $watch = 460
+          if ($mb -gt $watch) {
+            "::warning::the payload is {0:N0} MB, over the {1} MB watch-line - something heavy came back. Look at the list above." -f $mb, $watch
+          } else {
+            "within the ${watch} MB watch-line."
+          }
+
       - name: 5. start the built exe on this runner and read its log
         shell: pwsh
         run: |
@@ -170,8 +206,29 @@ jobs:
       - name: 6. portable zip
         shell: pwsh
         run: |
-          Compress-Archive -Path dist\ArcDesk\* -DestinationPath dist\ArcDesk-portable.zip -Force
-          "portable zip: {0:N1} MB - unzip anywhere, double-click ArcDesk.exe" -f ((Get-Item dist\ArcDesk-portable.zip).Length / 1MB)
+          # Nothing that is not code: caches and Qt's .pyi stubs compress badly and are
+          # never read at run time.
+          Get-ChildItem dist\ArcDesk -Recurse -Directory -Filter __pycache__ |
+            Remove-Item -Recurse -Force -ErrorAction SilentlyContinue
+          Get-ChildItem dist\ArcDesk -Recurse -File -Include *.pyi,*.pdb,*.lib,*.exp |
+            Remove-Item -Force -ErrorAction SilentlyContinue
+
+          # 7-Zip ships on the Windows images and compresses better than Compress-Archive
+          # (which is also slow on 3,000 files). Still a .zip, so Windows can open it with
+          # a plain right-click > Extract All - that is not negotiable.
+          $sevenZip = "${env:ProgramFiles}\7-Zip\7z.exe"
+          if (Test-Path $sevenZip) {
+            & $sevenZip a -tzip -mx=9 -mmt=on dist\ArcDesk-portable.zip ".\dist\ArcDesk\*" | Out-Null
+            if ($LASTEXITCODE -ne 0) { throw "7-Zip failed with $LASTEXITCODE" }
+          } else {
+            "7-Zip not found on this runner - falling back to Compress-Archive"
+            Compress-Archive -Path dist\ArcDesk\* -DestinationPath dist\ArcDesk-portable.zip -Force
+          }
+          $zipMb = (Get-Item dist\ArcDesk-portable.zip).Length / 1MB
+          "portable zip: {0:N1} MB - unzip anywhere, double-click ArcDesk.exe" -f $zipMb
+          if ($zipMb -gt 95) {
+            "::warning::the download is {0:N0} MB - over the 95 MB watch-line" -f $zipMb
+          }
 
       - name: 7. one-file installer
         shell: pwsh

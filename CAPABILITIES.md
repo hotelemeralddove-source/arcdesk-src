@@ -764,6 +764,13 @@ pananum."* Two voices, two questions — and until now only one of them had a bu
   Guarded by `tests/test_firstrun.py`, which boots the real entry point four ways —
   `--shadow`, `--show`, **no flags** (a double-click) and an old settings file that says
   "hidden" — and asserts the window state each time, read from the app's own log.
+- **the icon existed, was applied, and still showed as a python (found & fixed)**: the
+  exe carried our icon (byte-checked) while Explorer drew PyInstaller's. Cause: the `.ico`
+  was written by Pillow, which stores *every* frame as PNG. Windows renders 256×256 PNG
+  frames fine, but for the 16/32/48 sizes a shortcut asks for it falls back to the file
+  type's icon. `tools/make_icon.py` now writes BMP/DIB frames (32-bit BGRA + AND mask) for
+  every size below 256 and PNG only for 256 — the layout ICO tools on Windows produce —
+  and `tests/test_windows_build.py` asserts the frame layout.
 - **72 tests.**
 - **the workflow was simplified** to install → build → zip → upload. A blocking test step
   had cost four builds; the installer is now always produced, with a portable zip as the

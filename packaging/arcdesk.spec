@@ -150,6 +150,41 @@ if not RUNTIME_HOOKS:
     print("[spec] WARNING: packaging/pyi_rth_arcdesk.py is missing — an early crash "
           "would leave no log at all")
 
+# --------------------------------------------------------------- what to leave out
+# The app draws with QtCore/QtWidgets/QtGui and nothing else (measured: 88 import lines
+# across the package, all three modules). Everything Qt ships beyond that is dead weight:
+# WebEngine alone is ~110 MB on Windows and Quick/Qml ~40 MB. requirements.txt pins
+# PySide6-Essentials so CI never installs them - but they are one careless
+# `pip install PySide6` away (that meta-package pulls the Addons wheel), and the same
+# spec would then produce a build nobody asked for. Excluding them makes the size a
+# property of this file instead of a property of the machine.
+#
+# Every entry here is a module the app never imports, so "will it still run?" is answered
+# by the frozen doctor plus a real start (both run in this repo), not by hope. If one of
+# them is ever actually needed, PyInstaller says so loudly at import time — and step 5 of
+# the workflow starts the built exe on Windows and reads its log.
+_QT_DEAD = [
+    "QtWebEngineCore", "QtWebEngineWidgets", "QtWebEngineQuick", "QtWebChannel",
+    "QtWebSockets", "QtQuick", "QtQuick3D", "QtQuickWidgets", "QtQuickControls2",
+    "QtQml", "QtQmlModels", "QtQmlWorkerScript", "Qt3DCore", "Qt3DRender",
+    "Qt3DInput", "Qt3DLogic", "Qt3DAnimation", "Qt3DExtras", "QtCharts",
+    "QtDataVisualization", "QtGraphs", "QtMultimedia", "QtMultimediaWidgets",
+    "QtSpatialAudio", "QtPdf", "QtPdfWidgets", "QtSql", "QtTest", "QtDesigner",
+    "QtHelp", "QtUiTools", "QtBluetooth", "QtNfc", "QtPositioning", "QtLocation",
+    "QtSensors", "QtSerialPort", "QtSerialBus", "QtRemoteObjects", "QtScxml",
+    "QtStateMachine", "QtTextToSpeech", "QtHttpServer", "QtAxContainer",
+]
+# Python's own dead weight. `unittest`/`pydoc`/`lib2to3`/`idlelib` are development tools;
+# `setuptools`/`pip`/`pkg_resources` are build tools; the rest ship with CPython and are
+# never reached by this app. Ordered by what actually costs space.
+_PY_DEAD = [
+    "tkinter", "unittest", "pydoc", "doctest", "lib2to3", "idlelib", "turtledemo",
+    "ensurepip", "pip", "setuptools", "pkg_resources", "wheel", "distutils",
+    "pytest", "_pytest", "matplotlib", "scipy", "pandas", "IPython", "sympy",
+    "notebook", "jupyter", "sphinx", "fontTools", "lxml", "babel", "pygments",
+]
+EXCLUDES = [f"PySide6.{m}" for m in _QT_DEAD] + _PY_DEAD
+
 common = dict(
     pathex=[str(ROOT)],
     binaries=list(_msvc),
@@ -158,9 +193,7 @@ common = dict(
     hookspath=[],
     hooksconfig={},
     runtime_hooks=RUNTIME_HOOKS,
-    excludes=["tkinter", "pytest", "matplotlib", "scipy", "pandas", "IPython",
-              "PySide6.QtQml", "PySide6.QtQuick", "PySide6.QtWebEngineCore",
-              "PySide6.QtSql", "PySide6.QtTest", "PySide6.QtMultimedia"],
+    excludes=EXCLUDES,
     noarchive=False,
     optimize=0,
 )
@@ -179,6 +212,9 @@ voice_exe = EXE(voice_pyz, v.scripts, [], exclude_binaries=True, name="ArcDeskVo
                 upx=False, console=False, disable_windowed_traceback=False,
                 icon=icon_arg)
 
+# ONE copy of every shared binary. The voice exe is headless (no Qt at all), but its
+# Analysis still drags in whatever its imports touch; COLLECT de-duplicates by name, so
+# the folder does not carry two copies of the same DLL.
 COLLECT(exe, a.binaries, a.datas, voice_exe, v.binaries, v.datas,
         strip=False, upx=False, name="ArcDesk")
 

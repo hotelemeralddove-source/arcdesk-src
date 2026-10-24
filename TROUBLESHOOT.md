@@ -126,6 +126,13 @@ That picture — a yellow snake over a white page on a blue floppy — is PyInst
 `icon=shots/arc_icon.ico`, i.e. not by `packaging/arcdesk.spec` (the old fallback build
 did exactly this), or by a build where the icon file was not found.
 
+**There was a second cause, found after the first was fixed**: the `.ico` file's small
+frames were PNG-compressed. That is legal and Windows renders it at 256x256, but the sizes
+a desktop shortcut actually uses (16/32/48) are where Explorer gives up and falls back to
+the *file type's* icon — the python. `tools/make_icon.py` now writes BMP/DIB frames for
+every size below 256 and PNG only for 256, the layout every Windows icon tool produces.
+`tests/test_windows_build.py` asserts that layout, so it cannot silently come back.
+
 How to tell in ten seconds: open the program folder and look for `ArcDeskVoice.exe` and
 a folder called `_internal`. The fallback build has neither. Arc Desk's real build has
 both, plus the sparkle icon.
@@ -170,3 +177,26 @@ If it is still silent after this version: run `ArcDeskDiag.bat` and send the rep
 it now carries the last 60 log lines, `settings.json`'s key values, and the size of the
 installed exe. A report with no log at all means the exe never reached its own start-up
 code, which is a different fault (and a much more specific one to send back).
+
+## It takes too much disk space
+
+What is actually big, in order: Qt (about 200 MB installed — the window library), the two
+speech engines (about 60 MB), numpy (about 60 MB), Python itself (about 45 MB). None of
+that is padding; it is what makes a window, an ear and a calculation work without Python
+installed on the machine.
+
+What you do not have to carry:
+
+* **ffmpeg** — 195 MB installed. Only needed for video/audio waveforms and reels. The
+  installer's default type is now **"Arc Desk only"**; pick "full" (or tick the box) only
+  if you want it. Re-running the installer adds it later without touching your vault.
+* **Node runtime** — 85 MB. Only for MCP tool servers over npx.
+* **The old copy.** Two installs of Arc Desk means two copies of all of the above. If
+  `Task Manager` ever showed two `ArcDesk.exe` entries, that is 200 MB+ of duplicates.
+  `ReinstallClean.bat` removes the old one and never touches `%APPDATA%\ArcDesk`.
+* **The downloaded files.** `ArcDesk-portable.zip` and `ArcDeskSetup.exe` each contain a
+  whole copy (about 90 MB and 50 MB). Delete them once the app runs.
+
+The build now prints a size breakdown (the 15 biggest files) on every run, and switches
+the portable zip to 7-Zip maximum compression. Size is watched, not guessed — but it never
+blocks a working build: a jump prints a warning and ships anyway.

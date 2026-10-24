@@ -52,13 +52,22 @@ Name: "english"; MessagesFile: "compiler:Default.isl"
 ; tells them the one thing they need to know next.
 FinishedLabel=Arc Desk is installed successfully.%n%nSay "hey jarvis" (or open it from the Start Menu) to begin. Your work is saved in the Vault - ask it "where do my files save?"  anytime.
 
+[Types]
+; The first type is the one Inno pre-selects. Disk space is a real constraint on a
+; laptop, and the optional pieces are genuinely large: ffmpeg is 195 MB installed and the
+; Node runtime 85 MB. So the default installs Arc Desk and nothing else, and one click on
+; "full" brings the rest. Everything can be added later by running this installer again.
+Name: "compact"; Description: "Arc Desk only - smallest ({#AppName}, no extras)"
+Name: "full"; Description: "Arc Desk + media engine (ffmpeg) + Node runtime - about 280 MB more"
+Name: "custom"; Description: "Let me choose"; Flags: iscustom
+
 [Components]
-Name: "core"; Description: "Arc Desk application (required)"; Types: full compact custom; Flags: fixed
+Name: "core"; Description: "Arc Desk application (required)"; Types: compact full custom; Flags: fixed
 #if HaveFFmpeg
-Name: "media"; Description: "Media engine - ffmpeg + ffprobe (video, audio, waveforms, reels): 195 MB, ~58 MB in this installer"; Types: full compact custom
+Name: "media"; Description: "Media engine - ffmpeg + ffprobe (video, audio, waveforms, reels): 195 MB installed, 58 MB in this installer"; Types: full custom
 #endif
 #if HaveNode
-Name: "mcp"; Description: "Node runtime - needed only if you use MCP tool servers over npx: 85 MB, ~30 MB in this installer"; Types: full custom
+Name: "mcp"; Description: "Node runtime - only for MCP tool servers over npx: 85 MB installed, 30 MB in this installer"; Types: full custom
 #endif
 
 [Tasks]

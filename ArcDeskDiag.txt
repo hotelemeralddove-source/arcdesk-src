@@ -1,0 +1,130 @@
+ArcDesk diagnostic
+generated 24-10-2026 18:16:28.51
+script folder C:\Users\emera\Downloads\JARVIS\arcdesk-src\
+
+== 0. VERSION OF THIS DIAGNOSTIC
+fix17 - checks the Store Python alias, the 0xc0000142 runtime,
+and whether a downloaded file is blocked.
+
+== 1. this PC
+  windows : Microsoft Windows 11 Pro 10.0.26200 64-bit
+  shell   : PowerShell 5.1.26100.9711
+  user    : emera   temp: C:\Users\emera\AppData\Local\Temp
+
+== 2. files in the folder this was run from
+  ArcDeskSetup.exe  not here
+  ArcDesk-portable.zip  not here
+  ArcDesk.exe  not here
+  ArcDeskDiag.bat  10850 bytes
+  expected sizes: portable zip about 92 MB, setup exe about 53 MB.
+  A setup exe far under 40 MB is a half download - delete it and
+  download again. A zip that will not open is the same problem.
+
+== 3. blocked files - Mark of the Web
+
+== 4. python
+C:\Users\emera\AppData\Local\Microsoft\WindowsApps\python.exe
+C:\Users\emera\AppData\Local\Microsoft\WindowsApps\python3.exe
+  WARNING: C:\Users\emera\AppData\Local\Microsoft\WindowsApps\python.exe IS the Microsoft Store ALIAS
+  That is the AppInstallerPythonRedirector.exe dialog, and the
+  reason an exe built on this PC dies with 0xc0000142.
+  using: C:\Users\emera\AppData\Local\Microsoft\WindowsApps\python.exe
+
+== 5. MSVC runtime in System32
+  System32\vcruntime140.dll  present
+  System32\vcruntime140_1.dll  present
+  System32\msvcp140.dll  present
+  System32\concrt140.dll  present
+
+== 6. installed copies
+  installed at C:\Users\emera\AppData\Local\Programs\ArcDesk
+    DisplayName    REG_SZ    Arc Desk version 1.0
+    ArcDesk    REG_SZ    "C:\Users\emera\AppData\Local\Programs\ArcDesk\ArcDesk.exe" --shadow
+
+== 7. App execution alias state
+  python.exe alias present, 0 bytes
+  a stub this small means the Store Python itself is gone
+
+== 6. WHAT ARC DESK ITSELF SAID  - the log is the only honest witness
+  log: C:\Users\emera\AppData\Roaming\ArcDesk\logs\arcdesk.log   - last 60 lines
+  ------------------------------------------------------------
+  
+  --- 2026-10-24 16:15:01 ArcDesk start (windowless: this is the console) ---
+  
+  --- 2026-10-24 16:20:30 ArcDesk start (windowless: this is the console) ---
+  
+  --- 2026-10-24 16:37:40 ArcDesk start (windowless: this is the console) ---
+  
+  --- 2026-10-24 16:37:40 ArcDesk start (windowless: this is the console) ---
+  [1/2] speech model (Vosk, ~40 MB) ƒ?Ý
+  [2/2] speaker model (voice lock, ~30 MB) ƒ?Ý
+        already present: C:\Users\emera\AppData\Roaming\ArcDesk\models\speaker_embedding.onnx
+  done.
+  
+  --- 2026-10-24 16:38:02 ArcDesk start (windowless: this is the console) ---
+  
+  --- 2026-10-24 16:57:45 ArcDesk start (windowless: this is the console) ---
+  
+  --- 2026-10-24 16:57:45 ArcDesk start (windowless: this is the console) ---
+  [1/2] speech model (Vosk, ~40 MB) ƒ?Ý
+  
+  --- 2026-10-24 16:57:51 ArcDesk start (windowless: this is the console) ---
+  [arc-voice] already present: C:\Users\emera\AppData\Roaming\ArcDesk\vosk-model-small-en-us-0.15
+  [2/2] speaker model (voice lock, ~30 MB) ƒ?Ý
+        already present: C:\Users\emera\AppData\Roaming\ArcDesk\models\speaker_embedding.onnx
+  done.
+  
+  --- 2026-10-24 17:29:10 ArcDesk start (windowless: this is the console) ---
+  
+  --- 2026-10-24 17:48:47 ArcDesk start (windowless: this is the console) ---
+  
+  --- 2026-10-24 18:13:39 ArcDesk start (windowless: this is the console) ---
+  Arc Desk is already running ƒ?" bringing it to the front.
+  2026-10-24 18:13:44 NOTE    arcdesk        BOOT Aú stealth: the window is not shown (that is what --shadow asks for). Ctrl+Alt+J opens it; the tray icon is the other handle
+  2026-10-24 18:13:44 NOTE    arcdesk        BOOT Aú handles: tray=yes, hotkeys=yes, stealth=on
+  [1/2] speech model (Vosk, ~40 MB) ƒ?Ý
+  
+  --- 2026-10-24 18:13:44 ArcDesk start (windowless: this is the console) ---
+  [arc-voice] already present: C:\Users\emera\AppData\Roaming\ArcDesk\vosk-model-small-en-us-0.15
+  [2/2] speaker model (voice lock, ~30 MB) ƒ?Ý
+        already present: C:\Users\emera\AppData\Roaming\ArcDesk\models\speaker_embedding.onnx
+  done.
+  
+  --- 2026-10-24 18:13:55 ArcDesk start (windowless: this is the console) ---
+  
+  --- 2026-10-24 18:13:57 ArcDesk start (windowless: this is the console) ---
+  Arc Desk is already running ƒ?" bringing it to the front.
+  2026-10-24 18:14:00 NOTE    arcdesk        BOOT Aú the window is shown
+  2026-10-24 18:14:00 NOTE    arcdesk        BOOT Aú handles: tray=yes, hotkeys=yes, stealth=off
+  
+  --- 2026-10-24 18:15:53 ArcDesk start (windowless: this is the console) ---
+  Arc Desk is already running ƒ?" bringing it to the front.
+  2026-10-24 18:15:58 NOTE    arcdesk        BOOT Aú stealth: the window is not shown (that is what --shadow asks for). Ctrl+Alt+J opens it; the tray icon is the other handle
+  2026-10-24 18:15:58 NOTE    arcdesk        BOOT Aú handles: tray=yes, hotkeys=yes, stealth=on
+  [1/2] speech model (Vosk, ~40 MB) ƒ?Ý
+  
+  --- 2026-10-24 18:15:59 ArcDesk start (windowless: this is the console) ---
+  [arc-voice] already present: C:\Users\emera\AppData\Roaming\ArcDesk\vosk-model-small-en-us-0.15
+  [2/2] speaker model (voice lock, ~30 MB) ƒ?Ý
+        already present: C:\Users\emera\AppData\Roaming\ArcDesk\models\speaker_embedding.onnx
+  done.
+  ------------------------------------------------------------
+
+  settings: C:\Users\emera\AppData\Roaming\ArcDesk\settings.json
+  first_run      : False
+  shadow.enabled : False
+  shadow.user_choice : False
+  wake.enabled   : False
+
+  exe: C:\Users\emera\AppData\Local\Programs\ArcDesk\ArcDesk.exe
+  size: 11770037 bytes   - a real build is 10-25 MB, a stub is far less
+
+== WHAT TO DO WITH THIS REPORT
+1. If section 3 said BLOCKED and you answered N: run this again, answer Y.
+2. If section 4 shows WindowsApps: turn the alias off in
+   Settings > Apps > Advanced app settings > App execution aliases
+   python.exe and python3.exe OFF, then install Python from python.org.
+3. To use Arc Desk TODAY, no installer and no Python needed:
+   right-click ArcDesk-portable.zip > Extract All > open the folder
+   > double-click ArcDesk.exe
+4. Send this file back. It holds no keys and no personal files.

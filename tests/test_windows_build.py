@@ -286,6 +286,23 @@ check("the output is checked for the exe, the voice exe and _internal",
       all(k in w for k in ("ArcDeskVoice.exe is missing", "_internal is missing")), True)
 check("the icon is checked (its absence is what the user saw on the desktop)",
       "arc_icon.ico" in w, True)
+print("\n  the .ico itself: Explorer only draws small frames it can read")
+import struct as _struct  # noqa: E402
+
+_ico = (ROOT / "shots" / "arc_icon.ico").read_bytes()
+_frame_count = _struct.unpack("<H", _ico[4:6])[0]
+_layout = []
+for _i in range(_frame_count):
+    _off = 6 + _i * 16
+    _w, _h, _c, _r, _p, _bpp, _size, _at = _struct.unpack("<BBBBHHII", _ico[_off:_off + 16])
+    _layout.append((( _w or 256), "PNG" if _ico[_at:_at + 4] == b"\x89PNG" else "BMP"))
+check("the icon has all seven sizes Windows asks for",
+      [s for s, _ in _layout], [16, 24, 32, 48, 64, 128, 256])
+check("every size below 256 is a BMP frame (PNG-only frames make Explorer show the python)",
+      [k for size, k in _layout if size < 256], ["BMP"] * 6)
+check("256 is a PNG frame, like every icon tool on Windows produces",
+      [k for size, k in _layout if size == 256], ["PNG"])
+
 check("the exe's own icon is checked, not just the .ico file",
       "--icon-check" in w, True)
 check("…and a bad icon stops the artifact from being published",
